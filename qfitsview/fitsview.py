@@ -124,7 +124,6 @@ class QImageView(QtWidgets.QWidget):
 
         # decice on key
         if event.key() == QtCore.Qt.Key_Left:
-            print("left")
             cur.setPos(pos.x() - 1, pos.y())
         elif event.key() == QtCore.Qt.Key_Right:
             cur.setPos(pos.x() + 1, pos.y())
