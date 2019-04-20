@@ -1,0 +1,1 @@
+from .fitsview import QFitsView
