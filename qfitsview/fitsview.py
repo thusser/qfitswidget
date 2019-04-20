@@ -21,6 +21,9 @@ class QImageView(QtWidgets.QWidget):
         self.setMouseTracking(True)
         self.setCursor(QtCore.Qt.CrossCursor)
 
+        # grab keyboard as well
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+
         # init colormap
         self.setColormap('gray')
 
@@ -113,6 +116,25 @@ class QImageView(QtWidgets.QWidget):
         # emit signal and accept
         self.mouseMoved.emit(xi, yi)
         event.accept()
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        # get current cursor position
+        cur = QtGui.QCursor()
+        pos = cur.pos()
+
+        # decice on key
+        if event.key() == QtCore.Qt.Key_Left:
+            print("left")
+            cur.setPos(pos.x() - 1, pos.y())
+        elif event.key() == QtCore.Qt.Key_Right:
+            cur.setPos(pos.x() + 1, pos.y())
+        elif event.key() == QtCore.Qt.Key_Up:
+            cur.setPos(pos.x(), pos.y() - 1)
+        elif event.key() == QtCore.Qt.Key_Down:
+            cur.setPos(pos.x(), pos.y() + 1)
+
+        # always let parent handle event as well
+        QtWidgets.QWidget.keyPressEvent(self, event)
 
 
 class QFitsView(QtWidgets.QWidget):
