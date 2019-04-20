@@ -17,6 +17,7 @@ class QImageView(QtWidgets.QWidget):
         self._image_rect = None
         self._colormap = None
 
+        # set mouse cursor and grab it
         self.setMouseTracking(True)
         self.setCursor(QtCore.Qt.CrossCursor)
 
@@ -109,8 +110,9 @@ class QImageView(QtWidgets.QWidget):
         # scale to full image size
         xi, yi = x * self._image.width(), y * self._image.height()
 
-        # emit signal
+        # emit signal and accept
         self.mouseMoved.emit(xi, yi)
+        event.accept()
 
 
 class QFitsView(QtWidgets.QWidget):
