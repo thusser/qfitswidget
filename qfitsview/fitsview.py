@@ -215,6 +215,16 @@ class QFitsView(QtWidgets.QWidget):
         self.comboCuts.setCurrentText('99.0%')
         self.comboCuts.currentTextChanged.connect(self._cuts_preset_changed)
         layout.addWidget(self.comboCuts)
+        self.spinLoCut = QtWidgets.QDoubleSpinBox()
+        self.spinLoCut.setAlignment(QtCore.Qt.AlignHCenter)
+        self.spinLoCut.setRange(-9999999, 9999999)
+        self.spinLoCut.valueChanged.connect(self._cuts_changed)
+        layout.addWidget(self.spinLoCut)
+        self.spinHiCut = QtWidgets.QDoubleSpinBox()
+        self.spinHiCut.setAlignment(QtCore.Qt.AlignHCenter)
+        self.spinHiCut.setRange(-9999999, 9999999)
+        self.spinHiCut.valueChanged.connect(self._cuts_changed)
+        layout.addWidget(self.spinHiCut)
 
         # colormap
         spacer = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -289,6 +299,9 @@ class QFitsView(QtWidgets.QWidget):
 
     def _cuts_preset_changed(self, preset):
         if preset == 'Custom':
+            # just enable text boxes
+            self.spinLoCut.setEnabled(True)
+            self.spinHiCut.setEnabled(True)
             return
 
         # get percentage
@@ -299,7 +312,17 @@ class QFitsView(QtWidgets.QWidget):
 
         # get min/max in cut range
         cut = self.sorted_data[n:-n] if n > 0 else self.sorted_data
-        self.cuts = (np.min(cut), np.max(cut))
+        cuts = (np.min(cut), np.max(cut))
+
+        # set them and disable text boxes
+        self.spinLoCut.setValue(cuts[0])
+        self.spinLoCut.setEnabled(False)
+        self.spinHiCut.setValue(cuts[1])
+        self.spinHiCut.setEnabled(False)
+
+    def _cuts_changed(self):
+        # get cuts
+        self.cuts = (self.spinLoCut.value(), self.spinHiCut.value())
 
         # apply them
         self._apply_cuts()
