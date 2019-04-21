@@ -24,9 +24,6 @@ class QImageView(QtWidgets.QWidget):
         # grab keyboard as well
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
-        # init colormap
-        self.setColormap('gray')
-
     def setImage(self, image: QtGui.QImage) -> None:
         # set the image
         self._image = image
@@ -34,10 +31,7 @@ class QImageView(QtWidgets.QWidget):
         # update image
         self._update_image()
 
-    def setColormap(self, name: str) -> None:
-        # colormap
-        cm = ScalarMappable(norm=colors.Normalize(vmin=0, vmax=255), cmap=plt.get_cmap(name))
-
+    def setColormap(self, cm) -> None:
         # create colormap and set it
         self._colormap = [QtGui.qRgb(*cm.to_rgba(i, bytes=True)[:3]) for i in range(256)]
 
@@ -199,9 +193,15 @@ class QFitsView(QtWidgets.QWidget):
         self.layoutTop.setStretch(0, 1)
         self.layoutTop.setStretch(1, 0)
 
-        # main image
+        # main image and colorbar
+        imageLayout = QtWidgets.QHBoxLayout()
         self.imageView = QImageView()
         self.imageView.mouseMoved.connect(self._mouse_moved)
+        imageLayout.addWidget(self.imageView)
+        self.labelColorbar = QtWidgets.QLabel()
+        self.labelColorbar.setFixedWidth(30)
+        self.labelColorbar.setScaledContents(True)
+        imageLayout.addWidget(self.labelColorbar)
 
         # status bar
         self.groupStatus = QtWidgets.QFrame()
@@ -223,16 +223,17 @@ class QFitsView(QtWidgets.QWidget):
         self.comboColormap = QtWidgets.QComboBox()
         self.comboColormap.addItems(sorted([cm for cm in plt.colormaps() if not cm.endswith('_r')]))
         self.comboColormap.setCurrentText('gray')
-        self.comboColormap.currentTextChanged.connect(self._colormap_changed)
         layout.addWidget(self.comboColormap)
         self.checkColormapReverse = QtWidgets.QCheckBox('reversed')
-        self.checkColormapReverse.stateChanged.connect(self._colormap_changed)
         layout.addWidget(self.checkColormapReverse)
+        self._colormap_changed()
+        self.comboColormap.currentTextChanged.connect(self._colormap_changed)
+        self.checkColormapReverse.stateChanged.connect(self._colormap_changed)
 
         # main layout
         self.layoutMain = QtWidgets.QVBoxLayout()
         self.layoutMain.addLayout(self.layoutTop)
-        self.layoutMain.addWidget(self.imageView)
+        self.layoutMain.addLayout(imageLayout)
         self.layoutMain.addWidget(self.groupStatus)
         self.layoutMain.setStretch(0, 0)
         self.layoutMain.setStretch(1, 1)
@@ -336,12 +337,25 @@ class QFitsView(QtWidgets.QWidget):
 
     def _colormap_changed(self):
         # get name of colormap
-        cm = self.comboColormap.currentText()
+        name = self.comboColormap.currentText()
         if self.checkColormapReverse.isChecked():
-            cm += '_r'
+            name += '_r'
+
+        # colormap
+        cm = ScalarMappable(norm=colors.Normalize(vmin=0, vmax=250), cmap=plt.get_cmap(name))
 
         # set it
         self.imageView.setColormap(cm)
+
+        # create colorbar image
+        colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format_ARGB32)
+        for i in range(256):
+            rgba = cm.to_rgba(i, bytes=True)
+            c = QtGui.QColor(*rgba)
+            colorbar.setPixelColor(0, i, c)
+
+        # set colorbar
+        self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
 
 __all__ = ['QFitsView']
