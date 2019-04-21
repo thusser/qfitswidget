@@ -226,6 +226,16 @@ class QFitsView(QtWidgets.QWidget):
         self.spinHiCut.valueChanged.connect(self._cuts_changed)
         layout.addWidget(self.spinHiCut)
 
+        # stretch
+        spacer = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        layout.addSpacerItem(spacer)
+        layout.addWidget(QtWidgets.QLabel('Stretch:'))
+        self.comboStretch = QtWidgets.QComboBox()
+        self.comboStretch.addItems(['linear', 'log', 'sqrt', 'squared', 'asinh', 'sinh'])
+        self.comboStretch.setCurrentText('linear')
+        layout.addWidget(self.comboStretch)
+        self.comboStretch.currentTextChanged.connect(self._colormap_changed)
+
         # colormap
         spacer = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         layout.addSpacerItem(spacer)
@@ -364,8 +374,18 @@ class QFitsView(QtWidgets.QWidget):
         if self.checkColormapReverse.isChecked():
             name += '_r'
 
-        # colormap
-        cm = ScalarMappable(norm=colors.Normalize(vmin=0, vmax=250), cmap=plt.get_cmap(name))
+        # get normalization
+        stretch = self.comboStretch.currentText()
+        if stretch == 'linear':
+            norm = colors.Normalize(vmin=0, vmax=250)
+        elif stretch == 'log':
+            norm = colors.LogNorm(vmin=0.1, vmax=250)
+        else:
+            # TODO: implement others
+            norm = colors.Normalize(vmin=0, vmax=250)
+
+        # get colormap
+        cm = ScalarMappable(norm=norm, cmap=plt.get_cmap(name))
 
         # set it
         self.imageView.setColormap(cm)
