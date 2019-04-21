@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 
+from .norm import *
+
 
 class QImageView(QtWidgets.QWidget):
     mouseMoved = QtCore.pyqtSignal(float, float)
@@ -231,7 +233,7 @@ class QFitsView(QtWidgets.QWidget):
         layout.addSpacerItem(spacer)
         layout.addWidget(QtWidgets.QLabel('Stretch:'))
         self.comboStretch = QtWidgets.QComboBox()
-        self.comboStretch.addItems(['linear', 'log', 'sqrt', 'squared', 'asinh', 'sinh'])
+        self.comboStretch.addItems(['linear', 'log', 'sqrt', 'squared', 'asinh'])
         self.comboStretch.setCurrentText('linear')
         layout.addWidget(self.comboStretch)
         self.comboStretch.currentTextChanged.connect(self._colormap_changed)
@@ -380,9 +382,14 @@ class QFitsView(QtWidgets.QWidget):
             norm = colors.Normalize(vmin=0, vmax=250)
         elif stretch == 'log':
             norm = colors.LogNorm(vmin=0.1, vmax=250)
+        elif stretch == 'sqrt':
+            norm = FuncNorm(np.sqrt, vmin=0, vmax=250)
+        elif stretch == 'squared':
+            norm = colors.PowerNorm(2, vmin=0, vmax=250)
+        elif stretch == 'asinh':
+            norm = FuncNorm(np.arcsinh, vmin=0, vmax=250)
         else:
-            # TODO: implement others
-            norm = colors.Normalize(vmin=0, vmax=250)
+            raise ValueError('Invalid stretch')
 
         # get colormap
         cm = ScalarMappable(norm=norm, cmap=plt.get_cmap(name))
