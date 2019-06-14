@@ -3,6 +3,7 @@ import numpy as np
 from astropy.wcs import WCS
 import astropy.units as u
 import matplotlib.pyplot as plt
+from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 
@@ -345,9 +346,13 @@ class QFitsView(QtWidgets.QWidget):
         self.textImageY.setText('%.3f' % y)
 
         # convert to RA/Dec and show it
-        coord = self.wcs.pixel_to_world([x], [y])
-        self.textWorldX.setText(coord.ra.to_string(u.hour, sep=':')[0])
-        self.textWorldY.setText(coord.dec.to_string(sep=':')[0])
+        try:
+            coord = pixel_to_skycoord(x, y, self.wcs)
+            self.textWorldX.setText(coord.ra.to_string(u.hour, sep=':'))
+            self.textWorldY.setText(coord.dec.to_string(sep=':'))
+        except ValueError:
+            self.textWorldX.clear()
+            self.textWorldY.clear()
 
         # get value
         try:
