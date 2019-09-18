@@ -19,6 +19,8 @@ class QImageView(QtWidgets.QWidget):
         self._scaled_pixmap = None
         self._image_rect = None
         self._colormap = None
+        self._position_angle = None
+        self._mirrored = None
 
         # set mouse cursor and grab it
         self.setMouseTracking(True)
@@ -27,9 +29,11 @@ class QImageView(QtWidgets.QWidget):
         # grab keyboard as well
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
-    def setImage(self, image: QtGui.QImage) -> None:
+    def setImage(self, image: QtGui.QImage, position_angle: float, mirrored: bool) -> None:
         # set the image
         self._image = image
+        self._position_angle = np.radians(position_angle)
+        self._mirrored = mirrored
 
         # update image
         self._update_image()
@@ -88,8 +92,46 @@ class QImageView(QtWidgets.QWidget):
         # draw image
         painter.drawPixmap(x, y, self._scaled_pixmap)
 
+        # draw coordinate system
+        self._draw_north_east(painter)
+
         # remember rect
         self._image_rect = (x, y, pw, ph)
+
+    def _draw_north_east(self, painter):
+        # define pen
+        pen = QtGui.QPen()
+        pen.setColor(QtCore.Qt.yellow)
+        painter.setPen(pen)
+
+        # font
+        font = QtGui.QFont('times', 10)
+        fm = QtGui.QFontMetrics(font)
+        tw = fm.width('N')
+        painter.setFont(font)
+
+        # length of line and distance of text
+        length = 30
+        text = 40
+
+        # draw N line
+        x, y = -length * np.sin(self._position_angle), -length * np.cos(self._position_angle)
+        painter.drawLine(50, 50, 50 + x, 50 + y)
+
+        # draw N text
+        x, y = -text * np.sin(self._position_angle), -text * np.cos(self._position_angle)
+        painter.drawText(50 + x - tw/2, 50 + y + tw/2, 'N')
+
+        # angle for E
+        east_angle = self._position_angle - (np.pi / 2 if self._mirrored else -np.pi / 2)
+
+        # draw E line
+        x, y = -length * np.sin(east_angle), -length * np.cos(east_angle)
+        painter.drawLine(50, 50, 50 + x, 50 + y)
+
+        # draw E text
+        x, y = -text * np.sin(east_angle), -text * np.cos(east_angle)
+        painter.drawText(50 + x - tw/2, 50 + y + tw/2, 'E')
 
     def cut(self, x: float, y: float, size: int = 5):
         # extract region
@@ -270,6 +312,8 @@ class QFitsView(QtWidgets.QWidget):
         self.pixmap = None
         self.cuts = None
         self.wcs = None
+        self.position_angle = None
+        self.mirrored = None
 
     def _apply_cuts(self):
         # get cuts
@@ -300,12 +344,18 @@ class QFitsView(QtWidgets.QWidget):
         flipped = image.transformed(QtGui.QTransform().scale(1, -1))
 
         # now we need to display it
-        self.imageView.setImage(flipped)
+        self.imageView.setImage(flipped, self.position_angle, self.mirrored)
 
     def display(self, hdu):
         # store HDU and create WCS
         self.hdu = hdu
         self.wcs = WCS(hdu.header)
+
+        # get position angle and check whether image was mirrored
+        CD11, CD12 = self.hdu.header['PC1_1'], self.hdu.header['PC1_2']
+        CD21, CD22 = self.hdu.header['PC2_1'], self.hdu.header['PC2_2']
+        self.position_angle = np.degrees(np.arctan2(CD12, CD11))
+        self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
 
         # store flattened and sorted pixels
         self.sorted_data = np.sort(self.hdu.data.flatten())
