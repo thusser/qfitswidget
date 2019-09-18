@@ -65,9 +65,7 @@ class QImageView(QtWidgets.QWidget):
 
         # resize pixmap to my own size keeping aspect ratio and mirror along X axis
         w, h = self.width(), self.height()
-        self._scaled_pixmap = pixmap\
-            .scaled(w, h, QtCore.Qt.KeepAspectRatio)\
-            .transformed(QtGui.QTransform().scale(1, -1))
+        self._scaled_pixmap = pixmap.scaled(w, h, QtCore.Qt.KeepAspectRatio)
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         # on resize, resize the pixmap
@@ -298,8 +296,11 @@ class QFitsView(QtWidgets.QWidget):
         # create QImage
         image = QtGui.QImage(self.scaled_data, width, height, width, QtGui.QImage.Format_Indexed8)
 
+        # flip it
+        flipped = image.transformed(QtGui.QTransform().scale(1, -1))
+
         # now we need to display it
-        self.imageView.setImage(image)
+        self.imageView.setImage(flipped)
 
     def display(self, hdu):
         # store HDU and create WCS
