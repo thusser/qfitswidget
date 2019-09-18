@@ -93,7 +93,8 @@ class QImageView(QtWidgets.QWidget):
         painter.drawPixmap(x, y, self._scaled_pixmap)
 
         # draw coordinate system
-        self._draw_north_east(painter)
+        if self._position_angle is not None and self._mirrored is not None:
+            self._draw_north_east(painter)
 
         # remember rect
         self._image_rect = (x, y, pw, ph)
@@ -352,10 +353,14 @@ class QFitsView(QtWidgets.QWidget):
         self.wcs = WCS(hdu.header)
 
         # get position angle and check whether image was mirrored
-        CD11, CD12 = self.hdu.header['PC1_1'], self.hdu.header['PC1_2']
-        CD21, CD22 = self.hdu.header['PC2_1'], self.hdu.header['PC2_2']
-        self.position_angle = np.degrees(np.arctan2(CD12, CD11))
-        self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
+        if 'PC1_1' in self.hdu.header:
+            CD11, CD12 = self.hdu.header['PC1_1'], self.hdu.header['PC1_2']
+            CD21, CD22 = self.hdu.header['PC2_1'], self.hdu.header['PC2_2']
+            self.position_angle = np.degrees(np.arctan2(CD12, CD11))
+            self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
+        else:
+            self.position_angle = None
+            self.mirrored = None
 
         # store flattened and sorted pixels
         self.sorted_data = np.sort(self.hdu.data.flatten())
