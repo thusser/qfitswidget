@@ -63,9 +63,11 @@ class QImageView(QtWidgets.QWidget):
         # get pixmap
         pixmap = QtGui.QPixmap(self._image)
 
-        # resize pixmap to my own size keeping aspect ratio
+        # resize pixmap to my own size keeping aspect ratio and mirror along X axis
         w, h = self.width(), self.height()
-        self._scaled_pixmap = pixmap.scaled(w, h, QtCore.Qt.KeepAspectRatio)
+        self._scaled_pixmap = pixmap\
+            .scaled(w, h, QtCore.Qt.KeepAspectRatio)\
+            .transformed(QtGui.QTransform().scale(1, -1))
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         # on resize, resize the pixmap
