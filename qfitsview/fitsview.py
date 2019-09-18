@@ -32,7 +32,7 @@ class QImageView(QtWidgets.QWidget):
     def setImage(self, image: QtGui.QImage, position_angle: float, mirrored: bool) -> None:
         # set the image
         self._image = image
-        self._position_angle = np.radians(position_angle)
+        self._position_angle = None if position_angle is None else np.radians(position_angle)
         self._mirrored = mirrored
 
         # update image
@@ -366,7 +366,7 @@ class QFitsView(QtWidgets.QWidget):
         self.sorted_data = np.sort(self.hdu.data.flatten())
 
         # apply cuts
-        self._cuts_preset_changed('99.0%')
+        self._cuts_preset_changed(self.comboCuts.currentText())
 
     def _cuts_preset_changed(self, preset):
         if preset == 'Custom':
