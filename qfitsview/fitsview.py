@@ -258,7 +258,7 @@ class QFitsView(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel('Cuts:'))
         self.comboCuts = QtWidgets.QComboBox()
         self.comboCuts.addItems(['100.0%', '99.9%', '99.0%', '95.0%', 'Custom'])
-        self.comboCuts.setCurrentText('99.0%')
+        self.comboCuts.setCurrentText('99.9%')
         self.comboCuts.currentTextChanged.connect(self._cuts_preset_changed)
         layout.addWidget(self.comboCuts)
         self.spinLoCut = QtWidgets.QDoubleSpinBox()
@@ -278,7 +278,7 @@ class QFitsView(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel('Stretch:'))
         self.comboStretch = QtWidgets.QComboBox()
         self.comboStretch.addItems(['linear', 'log', 'sqrt', 'squared', 'asinh'])
-        self.comboStretch.setCurrentText('linear')
+        self.comboStretch.setCurrentText('sqrt')
         layout.addWidget(self.comboStretch)
         self.comboStretch.currentTextChanged.connect(self._colormap_changed)
 
