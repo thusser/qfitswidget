@@ -296,6 +296,14 @@ class QFitsView(QtWidgets.QWidget):
         self.comboColormap.currentTextChanged.connect(self._colormap_changed)
         self.checkColormapReverse.stateChanged.connect(self._colormap_changed)
 
+        # trimsec
+        spacer = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        layout.addSpacerItem(spacer)
+        self.checkTrimSec = QtWidgets.QCheckBox('trimsec')
+        self.checkTrimSec.setChecked(True)
+        self.checkTrimSec.stateChanged.connect(self._trimsec_changed)
+        layout.addWidget(self.checkTrimSec)
+
         # main layout
         self.layoutMain = QtWidgets.QVBoxLayout()
         self.layoutMain.addLayout(self.layoutTop)
@@ -308,6 +316,7 @@ class QFitsView(QtWidgets.QWidget):
 
         # store hdu and (scaled) data
         self.hdu = None
+        self.data = None
         self.sorted_data = None
         self.scaled_data = None
         self.pixmap = None
@@ -321,7 +330,7 @@ class QFitsView(QtWidgets.QWidget):
         c1, c2 = self.cuts
 
         # scale data
-        data = (self.hdu.data - c1) / (c2 - c1)
+        data = (self.data - c1) / (c2 - c1)
 
         # trim
         data[data < 0] = 0
@@ -347,6 +356,45 @@ class QFitsView(QtWidgets.QWidget):
         # now we need to display it
         self.imageView.setImage(flipped, self.position_angle, self.mirrored)
 
+    def _trimsec(self, hdu) -> np.ndarray:
+        """Trim an image to TRIMSEC.
+
+        Args:
+            hdu: HDU to take data from.
+
+        Returns:
+            Numpy array with image data.
+        """
+
+        # keyword not given?
+        if 'TRIMSEC' not in hdu.header:
+            # return whole data
+            return hdu.data
+
+        # get value of section
+        sec = hdu.header['TRIMSEC']
+
+        # copy data
+        data = hdu.data.copy()
+
+        # split values
+        s = sec[1:-1].split(',')
+        x = s[0].split(':')
+        y = s[1].split(':')
+
+        # set everything else to NaN
+        x0 = int(x[0]) - 1
+        x1 = int(x[1])
+        y0 = int(y[0]) - 1
+        y1 = int(y[1])
+        data[:, :x0] = 0
+        data[:, x1:] = 0
+        data[:y0, :] = 0
+        data[y1:, :] = 0
+
+        # return data
+        return data
+
     def display(self, hdu):
         # store HDU and create WCS
         self.hdu = hdu
@@ -362,8 +410,15 @@ class QFitsView(QtWidgets.QWidget):
             self.position_angle = None
             self.mirrored = None
 
+        # apply trimsec
+        self._trimsec_changed()
+
+    def _trimsec_changed(self):
+        # cut trimsec
+        self.data = self._trimsec(self.hdu) if self.checkTrimSec.isChecked() else self.hdu.data
+
         # store flattened and sorted pixels
-        self.sorted_data = np.sort(self.hdu.data.flatten())
+        self.sorted_data = np.sort(self.data[self.data > 0].flatten())
 
         # apply cuts
         self._cuts_preset_changed(self.comboCuts.currentText())
