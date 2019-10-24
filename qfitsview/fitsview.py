@@ -102,7 +102,7 @@ class QImageView(QtWidgets.QWidget):
     def _draw_north_east(self, painter):
         # define pen
         pen = QtGui.QPen()
-        pen.setColor(QtCore.Qt.yellow)
+        pen.setColor(QtCore.Qt.red)
         painter.setPen(pen)
 
         # font
