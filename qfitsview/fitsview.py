@@ -414,7 +414,7 @@ class QFitsView(QtWidgets.QWidget):
 
         # get value
         try:
-            value = self.hdu.data[int(y), int(x)]
+            value = self.hdu.data[self.hdu.data.shape[0] - int(y), int(x)]
         except IndexError:
             value = ''
         self.textPixelValue.setText(str(value))
