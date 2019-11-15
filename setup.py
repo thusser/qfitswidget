@@ -2,7 +2,7 @@
 from setuptools import setup
 
 setup(
-    name='QFitsView',
+    name='qfitsview',
     version='0.2',
     description='PyQt widget for displaying FITS files',
     author='Tim-Oliver Husser',
