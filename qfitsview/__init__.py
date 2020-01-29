@@ -1,1 +1,1 @@
-from .fitsview import QFitsView
+from .qfitsview import QFitsView
