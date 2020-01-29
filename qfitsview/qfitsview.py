@@ -16,6 +16,26 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
         QtWidgets.QWidget.__init__(self, parent)
         self.setupUi(self)
 
+        # set cuts
+        self.comboCuts.addItems(['100.0%', '99.9%', '99.0%', '95.0%', 'Custom'])
+        self.comboCuts.setCurrentText('99.9%')
+        self.comboCuts.currentTextChanged.connect(self._cuts_preset_changed)
+
+        # set stretch functions
+        self.comboStretch.addItems(['linear', 'log', 'sqrt', 'squared', 'asinh'])
+        self.comboStretch.setCurrentText('sqrt')
+        self.comboStretch.currentTextChanged.connect(self._colormap_changed)
+
+        # set colormaps
+        self.comboColormap.addItems(sorted([cm for cm in plt.colormaps() if not cm.endswith('_r')]))
+        self.comboColormap.setCurrentText('gray')
+        self._colormap_changed()
+        self.comboColormap.currentTextChanged.connect(self._colormap_changed)
+        self.checkColormapReverse.stateChanged.connect(self._colormap_changed)
+
+        # connect trimsec
+        self.checkTrimSec.stateChanged.connect(self._trimsec_changed)
+
         # store hdu and (scaled) data
         self.hdu = None
         self.data = None

@@ -10,7 +10,6 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from .qimageview import QImageView
 
-
 class Ui_FitsView(object):
     def setupUi(self, FitsView):
         FitsView.setObjectName("FitsView")
@@ -79,6 +78,7 @@ class Ui_FitsView(object):
         self.labelZoom.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.labelZoom.setFrameShadow(QtWidgets.QFrame.Raised)
         self.labelZoom.setText("")
+        self.labelZoom.setScaledContents(True)
         self.labelZoom.setObjectName("labelZoom")
         self.horizontalLayout.addWidget(self.labelZoom)
         self.verticalLayout_3.addLayout(self.horizontalLayout)
@@ -98,9 +98,9 @@ class Ui_FitsView(object):
         spacerItem1 = QtWidgets.QSpacerItem(20, 322, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_2.addItem(spacerItem1)
         self.horizontalLayout_2.addWidget(self.frameToolBar)
-        self.widget = QImageView(FitsView)
-        self.widget.setObjectName("widget")
-        self.horizontalLayout_2.addWidget(self.widget)
+        self.imageView = QImageView(FitsView)
+        self.imageView.setObjectName("imageView")
+        self.horizontalLayout_2.addWidget(self.imageView)
         self.frameToolInfo = QtWidgets.QFrame(FitsView)
         self.frameToolInfo.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frameToolInfo.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -153,6 +153,7 @@ class Ui_FitsView(object):
         spacerItem4 = QtWidgets.QSpacerItem(1, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_3.addItem(spacerItem4)
         self.checkTrimSec = QtWidgets.QCheckBox(self.frame)
+        self.checkTrimSec.setChecked(True)
         self.checkTrimSec.setObjectName("checkTrimSec")
         self.horizontalLayout_3.addWidget(self.checkTrimSec)
         self.verticalLayout_3.addWidget(self.frame)
@@ -177,3 +178,4 @@ class Ui_FitsView(object):
         self.label_10.setText(_translate("FitsView", "Colormap:"))
         self.checkColormapReverse.setText(_translate("FitsView", "reversed"))
         self.checkTrimSec.setText(_translate("FitsView", "trimsec"))
+
