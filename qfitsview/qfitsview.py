@@ -16,10 +16,15 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
         QtWidgets.QWidget.__init__(self, parent)
         self.setupUi(self)
 
+        # mouse
+        self.imageView.mouseMoved.connect(self._mouse_moved)
+
         # set cuts
         self.comboCuts.addItems(['100.0%', '99.9%', '99.0%', '95.0%', 'Custom'])
         self.comboCuts.setCurrentText('99.9%')
         self.comboCuts.currentTextChanged.connect(self._cuts_preset_changed)
+        self.spinLoCut.valueChanged.connect(self._cuts_changed)
+        self.spinHiCut.valueChanged.connect(self._cuts_changed)
 
         # set stretch functions
         self.comboStretch.addItems(['linear', 'log', 'sqrt', 'squared', 'asinh'])
@@ -183,11 +188,11 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
         # convert to RA/Dec and show it
         try:
             coord = pixel_to_skycoord(x, y, self.wcs)
-            self.textWorldX.setText(coord.ra.to_string(u.hour, sep=':'))
-            self.textWorldY.setText(coord.dec.to_string(sep=':'))
+            self.textWorldRA.setText(coord.ra.to_string(u.hour, sep=':'))
+            self.textWorldDec.setText(coord.dec.to_string(sep=':'))
         except ValueError:
-            self.textWorldX.clear()
-            self.textWorldY.clear()
+            self.textWorldRA.clear()
+            self.textWorldDec.clear()
 
         # get value
         try:

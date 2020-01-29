@@ -1,5 +1,6 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
+from . import resources
 
 
 class QImageView(QtWidgets.QWidget):
@@ -16,7 +17,7 @@ class QImageView(QtWidgets.QWidget):
 
         # set mouse cursor and grab it
         self.setMouseTracking(True)
-        self.setCursor(QtCore.Qt.CrossCursor)
+        self.setCursor(QtGui.QCursor(QtGui.QPixmap(":/resources/crosshairs-solid.svg").scaledToWidth(16)))
 
         # grab keyboard as well
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
