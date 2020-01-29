@@ -11,7 +11,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from .qimageview import QImageView
 from . import resources
 
-
 class Ui_FitsView(object):
     def setupUi(self, FitsView):
         FitsView.setObjectName("FitsView")
@@ -94,15 +93,21 @@ class Ui_FitsView(object):
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_2.setSpacing(6)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
-        self.buttonCursor = QtWidgets.QToolButton(self.frameToolBar)
-        self.buttonCursor.setText("")
+        self.buttonToolCursor = QtWidgets.QToolButton(self.frameToolBar)
+        self.buttonToolCursor.setText("")
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/resources/crosshairs-solid.svg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.buttonCursor.setIcon(icon)
-        self.buttonCursor.setIconSize(QtCore.QSize(16, 16))
-        self.buttonCursor.setObjectName("buttonCursor")
-        self.verticalLayout_2.addWidget(self.buttonCursor)
-        spacerItem = QtWidgets.QSpacerItem(20, 371, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.buttonToolCursor.setIcon(icon)
+        self.buttonToolCursor.setIconSize(QtCore.QSize(16, 16))
+        self.buttonToolCursor.setObjectName("buttonToolCursor")
+        self.verticalLayout_2.addWidget(self.buttonToolCursor)
+        self.buttonToolCalc = QtWidgets.QToolButton(self.frameToolBar)
+        icon1 = QtGui.QIcon()
+        icon1.addPixmap(QtGui.QPixmap(":/resources/calculator-solid.svg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.buttonToolCalc.setIcon(icon1)
+        self.buttonToolCalc.setObjectName("buttonToolCalc")
+        self.verticalLayout_2.addWidget(self.buttonToolCalc)
+        spacerItem = QtWidgets.QSpacerItem(20, 333, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_2.addItem(spacerItem)
         self.horizontalLayout_2.addWidget(self.frameToolBar)
         self.imageView = QImageView(FitsView)
@@ -186,6 +191,7 @@ class Ui_FitsView(object):
         self.label_6.setText(_translate("FitsView", "World"))
         self.label.setText(_translate("FitsView", "Image"))
         self.label_4.setText(_translate("FitsView", "RA:"))
+        self.buttonToolCalc.setText(_translate("FitsView", "..."))
         self.label_8.setText(_translate("FitsView", "Cuts:"))
         self.label_9.setText(_translate("FitsView", "Stretch:"))
         self.label_10.setText(_translate("FitsView", "Colormap:"))
