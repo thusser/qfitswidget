@@ -17,7 +17,7 @@ class QImageView(QtWidgets.QWidget):
 
         # set mouse cursor and grab it
         self.setMouseTracking(True)
-        self.setCursor(QtGui.QCursor(QtGui.QPixmap(":/resources/crosshairs-solid.svg").scaledToWidth(16)))
+        self.setCursor(QtCore.Qt.CrossCursor)
 
         # grab keyboard as well
         self.setFocusPolicy(QtCore.Qt.StrongFocus)

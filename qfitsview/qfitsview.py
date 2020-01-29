@@ -7,7 +7,7 @@ from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 
-from .ui_fitsview import Ui_FitsView
+from .fitsview import Ui_FitsView
 from .norm import *
 
 
@@ -196,10 +196,20 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
 
         # get value
         try:
-            value = self.hdu.data[self.hdu.data.shape[0] - int(y), int(x)]
+            iy, ix = self.hdu.data.shape[0] - int(y), int(x)
+            value = self.hdu.data[iy, ix]
         except IndexError:
             value = ''
         self.textPixelValue.setText(str(value))
+
+        # mean/max
+        try:
+            cut = self.hdu.data[iy - 10:iy + 11, ix - 10: ix + 11]
+            self.textAreaMean.setText('%.2f' % np.mean(cut))
+            self.textAreaMax.setText('%.2f' % np.max(cut))
+        except ValueError:
+            # outside range
+            pass
 
         # get zoom in and scale it to 100x100
         pix = self.imageView.cut(x, y, 10).scaled(101, 101)
@@ -214,6 +224,10 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
 
         # show zoom
         self.labelZoom.setPixmap(pix)
+
+        # get data in zoom
+        x, y = int(x), int(y)
+
 
     def _colormap_changed(self):
         # get name of colormap
