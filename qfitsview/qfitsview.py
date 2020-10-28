@@ -133,6 +133,7 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
             CD21, CD22 = self.hdu.header['PC2_1'], self.hdu.header['PC2_2']
             self.position_angle = np.degrees(np.arctan2(CD12, CD11))
             self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
+            print(self.mirrored)
         else:
             self.position_angle = None
             self.mirrored = None
@@ -192,7 +193,7 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
     def _mouse_moved(self, x: float, y: float):
         # show X/Y
         self.textImageX.setText('%.3f' % x)
-        self.textImageY.setText('%.3f' % y)
+        self.textImageY.setText('%.3f' % (self.scaled_data.shape[0] - y,))
 
         # convert to RA/Dec and show it
         try:
