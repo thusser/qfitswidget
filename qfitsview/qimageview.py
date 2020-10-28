@@ -14,6 +14,7 @@ class QImageView(QtWidgets.QWidget):
         self._colormap = None
         self._position_angle = None
         self._mirrored = None
+        self._last_cursor_pos = (0, 0)
 
         # set mouse cursor and grab it
         self.setMouseTracking(True)
@@ -147,6 +148,7 @@ class QImageView(QtWidgets.QWidget):
         xi, yi = x * self._image.width(), y * self._image.height()
 
         # emit signal and accept
+        self._last_cursor_pos = (xi, yi)
         self.mouseMoved.emit(xi, yi)
         event.accept()
 
@@ -167,3 +169,8 @@ class QImageView(QtWidgets.QWidget):
 
         # always let parent handle event as well
         QtWidgets.QWidget.keyPressEvent(self, event)
+
+    @property
+    def last_cursor_pos(self) -> (float, float):
+        """Returns X/Y position of last cursor position."""
+        return self._last_cursor_pos

@@ -150,6 +150,10 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
         # apply trimsec
         self._trimsec_changed()
 
+        # update info
+        x, y = self.imageView.last_cursor_pos
+        self._mouse_moved(x, y)
+
     def _trimsec_changed(self):
         # cut trimsec
         self.data = self._trimsec(self.hdu) if self.checkTrimSec.isChecked() else self.hdu.data
