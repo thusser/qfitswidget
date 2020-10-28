@@ -266,10 +266,17 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="comboCuts"/>
+       <widget class="QComboBox" name="comboCuts">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QDoubleSpinBox" name="spinLoCut">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="minimum">
          <double>-999999999.000000000000000</double>
         </property>
@@ -280,6 +287,9 @@
       </item>
       <item>
        <widget class="QDoubleSpinBox" name="spinHiCut">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="minimum">
          <double>-999999999.000000000000000</double>
         </property>
@@ -309,7 +319,11 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="comboStretch"/>
+       <widget class="QComboBox" name="comboStretch">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+       </widget>
       </item>
       <item>
        <spacer name="horizontalSpacer_2">
@@ -332,10 +346,17 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="comboColormap"/>
+       <widget class="QComboBox" name="comboColormap">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QCheckBox" name="checkColormapReverse">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>reversed</string>
         </property>
@@ -356,6 +377,9 @@
       </item>
       <item>
        <widget class="QCheckBox" name="checkTrimSec">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>trimsec</string>
         </property>

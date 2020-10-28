@@ -2,14 +2,12 @@
 
 # Form implementation generated from reading ui file 'fitsview.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.3
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from .qimageview import QImageView
-from  . import resources
 
 
 class Ui_FitsView(object):
@@ -130,14 +128,17 @@ class Ui_FitsView(object):
         self.label_8.setObjectName("label_8")
         self.horizontalLayout_3.addWidget(self.label_8)
         self.comboCuts = QtWidgets.QComboBox(self.frame)
+        self.comboCuts.setEnabled(False)
         self.comboCuts.setObjectName("comboCuts")
         self.horizontalLayout_3.addWidget(self.comboCuts)
         self.spinLoCut = QtWidgets.QDoubleSpinBox(self.frame)
+        self.spinLoCut.setEnabled(False)
         self.spinLoCut.setMinimum(-999999999.0)
         self.spinLoCut.setMaximum(999999999.0)
         self.spinLoCut.setObjectName("spinLoCut")
         self.horizontalLayout_3.addWidget(self.spinLoCut)
         self.spinHiCut = QtWidgets.QDoubleSpinBox(self.frame)
+        self.spinHiCut.setEnabled(False)
         self.spinHiCut.setMinimum(-999999999.0)
         self.spinHiCut.setMaximum(999999999.0)
         self.spinHiCut.setObjectName("spinHiCut")
@@ -148,6 +149,7 @@ class Ui_FitsView(object):
         self.label_9.setObjectName("label_9")
         self.horizontalLayout_3.addWidget(self.label_9)
         self.comboStretch = QtWidgets.QComboBox(self.frame)
+        self.comboStretch.setEnabled(False)
         self.comboStretch.setObjectName("comboStretch")
         self.horizontalLayout_3.addWidget(self.comboStretch)
         spacerItem1 = QtWidgets.QSpacerItem(5, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -156,14 +158,17 @@ class Ui_FitsView(object):
         self.label_10.setObjectName("label_10")
         self.horizontalLayout_3.addWidget(self.label_10)
         self.comboColormap = QtWidgets.QComboBox(self.frame)
+        self.comboColormap.setEnabled(False)
         self.comboColormap.setObjectName("comboColormap")
         self.horizontalLayout_3.addWidget(self.comboColormap)
         self.checkColormapReverse = QtWidgets.QCheckBox(self.frame)
+        self.checkColormapReverse.setEnabled(False)
         self.checkColormapReverse.setObjectName("checkColormapReverse")
         self.horizontalLayout_3.addWidget(self.checkColormapReverse)
         spacerItem2 = QtWidgets.QSpacerItem(5, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_3.addItem(spacerItem2)
         self.checkTrimSec = QtWidgets.QCheckBox(self.frame)
+        self.checkTrimSec.setEnabled(False)
         self.checkTrimSec.setChecked(True)
         self.checkTrimSec.setObjectName("checkTrimSec")
         self.horizontalLayout_3.addWidget(self.checkTrimSec)
@@ -188,4 +193,5 @@ class Ui_FitsView(object):
         self.label_10.setText(_translate("FitsView", "Colormap:"))
         self.checkColormapReverse.setText(_translate("FitsView", "reversed"))
         self.checkTrimSec.setText(_translate("FitsView", "trimsec"))
+
 from .qimageview import QImageView

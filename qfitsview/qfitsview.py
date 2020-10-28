@@ -137,6 +137,15 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
             self.position_angle = None
             self.mirrored = None
 
+        # enable GUI elements, only important for first image after start
+        self.comboCuts.setEnabled(True)
+        self.spinLoCut.setEnabled(True)
+        self.spinHiCut.setEnabled(True)
+        self.comboStretch.setEnabled(True)
+        self.comboColormap.setEnabled(True)
+        self.checkColormapReverse.setEnabled(True)
+        self.checkTrimSec.setEnabled(True)
+
         # apply trimsec
         self._trimsec_changed()
 
