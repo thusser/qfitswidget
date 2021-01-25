@@ -218,8 +218,13 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
         # mean/max
         try:
             cut = self.hdu.data[iy - 10:iy + 11, ix - 10: ix + 11]
-            self.textAreaMean.setText('%.2f' % np.mean(cut))
-            self.textAreaMax.setText('%.2f' % np.max(cut))
+            if all([s > 0 for s in cut.shape]):
+                self.textAreaMean.setText('%.2f' % np.mean(cut))
+                self.textAreaMax.setText('%.2f' % np.max(cut))
+            else:
+                self.textAreaMean.clear()
+                self.textAreaMax.clear()
+
         except ValueError:
             # outside range
             pass
