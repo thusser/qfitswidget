@@ -259,7 +259,10 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QLabel" name="label_8">
+       <widget class="QLabel" name="labelCuts">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>Cuts:</string>
         </property>
@@ -312,7 +315,10 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLabel" name="label_9">
+       <widget class="QLabel" name="labelStretch">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>Stretch:</string>
         </property>
@@ -339,7 +345,10 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLabel" name="label_10">
+       <widget class="QLabel" name="labelColormap">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>Colormap:</string>
         </property>
