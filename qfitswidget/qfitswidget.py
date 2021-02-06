@@ -72,7 +72,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     def _create_qimage(self):
         # get shape of image
-        height, width = self.scaled_data.shape[:2]
+        height, width = self.scaled_data.shape[-2:]
 
         # format
         if len(self.scaled_data.shape) == 2:
@@ -82,8 +82,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             format = QtGui.QImage.Format_RGB888
             bytes_per_line = width * 3
 
+        # for cubes, move axis
+        data = np.moveaxis(self.scaled_data, 0, 2) if len(self.scaled_data.shape) == 3 else self.scaled_data
+
         # create QImage
-        image = QtGui.QImage(self.scaled_data, width, height, bytes_per_line, format)
+        image = QtGui.QImage(data.tobytes(), width, height, bytes_per_line, format)
 
         # flip it
         flipped = image.transformed(QtGui.QTransform().scale(1, -1))
@@ -137,7 +140,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             pass
         elif len(hdu.data.shape) == 3:
             # we need three images of uint8 format
-            if hdu.data.shape[2] != 3:
+            if hdu.data.shape[0] != 3:
                 raise ValueError('Data cubes only supported with three layers, which are interpreted as RGB.')
             if hdu.data.dtype != np.uint8:
                 raise ValueError('Color images only supported in RGB24 mode.')
@@ -160,7 +163,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         is_int8 = hdu.data.dtype == np.uint8
 
         # colour image?
-        is_color = len(hdu.data.shape) == 3 and hdu.data.shape[2] == 3
+        is_color = len(hdu.data.shape) == 3 and hdu.data.shape[0] == 3
 
         # enable GUI elements, only important for first image after start
         self.labelCuts.setEnabled(not is_int8)
@@ -231,7 +234,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def _mouse_moved(self, x: float, y: float):
         # show X/Y
         self.textImageX.setText('%.3f' % x)
-        self.textImageY.setText('%.3f' % (self.scaled_data.shape[0] - y,))
+        self.textImageY.setText('%.3f' % (self.scaled_data.shape[-2] - y,))
 
         # convert to RA/Dec and show it
         try:
@@ -244,7 +247,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # get value
         try:
-            iy, ix = self.hdu.data.shape[0] - int(y), int(x)
+            iy, ix = self.hdu.data.shape[-2] - int(y), int(x)
             value = self.hdu.data[iy, ix]
         except IndexError:
             value = ''
@@ -252,7 +255,13 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # mean/max
         try:
-            cut = self.hdu.data[iy - 10:iy + 11, ix - 10: ix + 11]
+            # cut
+            if len(self.hdu.data.shape) == 2:
+                cut = self.hdu.data[iy - 10:iy + 11, ix - 10: ix + 11]
+            else:
+                cut = self.hdu.data[:, iy - 10:iy + 11, ix - 10: ix + 11]
+
+            # calculate and show
             if all([s > 0 for s in cut.shape]):
                 self.textAreaMean.setText('%.2f' % np.mean(cut))
                 self.textAreaMax.setText('%.2f' % np.max(cut))
