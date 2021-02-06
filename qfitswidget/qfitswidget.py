@@ -255,7 +255,13 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # mean/max
         try:
-            cut = self.hdu.data[iy - 10:iy + 11, ix - 10: ix + 11]
+            # cut
+            if len(self.hdu.data.shape) == 2:
+                cut = self.hdu.data[iy - 10:iy + 11, ix - 10: ix + 11]
+            else:
+                cut = self.hdu.data[:, iy - 10:iy + 11, ix - 10: ix + 11]
+
+            # calculate and show
             if all([s > 0 for s in cut.shape]):
                 self.textAreaMean.setText('%.2f' % np.mean(cut))
                 self.textAreaMax.setText('%.2f' % np.max(cut))
