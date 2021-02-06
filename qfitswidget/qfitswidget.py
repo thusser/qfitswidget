@@ -71,11 +71,19 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._create_qimage()
 
     def _create_qimage(self):
-        # get shape of data
-        height, width = self.scaled_data.shape
+        # get shape of image
+        height, width = self.scaled_data.shape[:2]
+
+        # format
+        if len(self.scaled_data.shape) == 2:
+            format = QtGui.QImage.Format_Indexed8
+            bytes_per_line = width
+        else:
+            format = QtGui.QImage.Format_RGB888
+            bytes_per_line = width * 3
 
         # create QImage
-        image = QtGui.QImage(self.scaled_data, width, height, width, QtGui.QImage.Format_Indexed8)
+        image = QtGui.QImage(self.scaled_data, width, height, bytes_per_line, format)
 
         # flip it
         flipped = image.transformed(QtGui.QTransform().scale(1, -1))
@@ -123,6 +131,17 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         return data
 
     def display(self, hdu):
+        # check supported formats
+        if len(hdu.data.shape) == 2:
+            # any 2D image is supported
+            pass
+        elif len(hdu.data.shape) == 3:
+            # we need three images of uint8 format
+            if hdu.data.shape[2] != 3:
+                raise ValueError('Data cubes only supported with three layers, which are interpreted as RGB.')
+            if hdu.data.dtype != np.uint8:
+                raise ValueError('Color images only supported in RGB24 mode.')
+
         # store HDU and create WCS
         self.hdu = hdu
         self.wcs = WCS(hdu.header)
@@ -137,13 +156,22 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.position_angle = None
             self.mirrored = None
 
+        # for INT8 images, we don't need cuts
+        is_int8 = hdu.data.dtype == np.uint8
+
+        # colour image?
+        is_color = len(hdu.data.shape) == 3 and hdu.data.shape[2] == 3
+
         # enable GUI elements, only important for first image after start
-        self.comboCuts.setEnabled(True)
-        self.spinLoCut.setEnabled(True)
-        self.spinHiCut.setEnabled(True)
-        self.comboStretch.setEnabled(True)
-        self.comboColormap.setEnabled(True)
-        self.checkColormapReverse.setEnabled(True)
+        self.labelCuts.setEnabled(not is_int8)
+        self.comboCuts.setEnabled(not is_int8)
+        self.spinLoCut.setEnabled(not is_int8)
+        self.spinHiCut.setEnabled(not is_int8)
+        self.labelStretch.setEnabled(not is_int8)
+        self.comboStretch.setEnabled(not is_int8)
+        self.labelColormap.setEnabled(not is_color)
+        self.comboColormap.setEnabled(not is_color)
+        self.checkColormapReverse.setEnabled(not is_color)
         self.checkTrimSec.setEnabled(True)
 
         # apply trimsec
@@ -160,8 +188,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # store flattened and sorted pixels
         self.sorted_data = np.sort(self.data[self.data > 0].flatten())
 
-        # apply cuts
-        self._cuts_preset_changed(self.comboCuts.currentText())
+        # image type?
+        if self.hdu.data.dtype == np.uint8:
+            # image is scaled image directly
+            self.scaled_data = np.copy(self.data)
+            self._create_qimage()
+
+        else:
+            # apply cuts
+            self._cuts_preset_changed(self.comboCuts.currentText())
 
     def _cuts_preset_changed(self, preset):
         if preset == 'Custom':

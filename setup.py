@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='qfitswidget',
-    version='0.6',
+    version='0.7',
     description='PyQt widget for displaying FITS files',
     author='Tim-Oliver Husser',
     author_email='thusser@uni-goettingen.de',
