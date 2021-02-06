@@ -2,12 +2,12 @@
 from setuptools import setup
 
 setup(
-    name='qfitsview',
-    version='0.5',
+    name='qfitswidget',
+    version='0.6',
     description='PyQt widget for displaying FITS files',
     author='Tim-Oliver Husser',
     author_email='thusser@uni-goettingen.de',
-    packages=['qfitsview'],
+    packages=['qfitswidget'],
     install_requires=[
         'matplotlib',
         'PyQt5',

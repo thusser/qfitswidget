@@ -7,11 +7,11 @@ from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 
-from .fitsview import Ui_FitsView
+from .fitswidget import Ui_FitsWidget
 from .norm import *
 
 
-class QFitsView(QtWidgets.QWidget, Ui_FitsView):
+class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         self.setupUi(self)
@@ -285,4 +285,4 @@ class QFitsView(QtWidgets.QWidget, Ui_FitsView):
         self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
 
-__all__ = ['QFitsView']
+__all__ = ['QFitsWidget']

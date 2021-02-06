@@ -1,5 +1,5 @@
-QFitsView
-=========
+QFitsWidget
+===========
 
 A PyQt widget for displaying a FITS file.
 

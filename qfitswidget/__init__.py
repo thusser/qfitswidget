@@ -1,0 +1,1 @@
+from .qfitswidget import QFitsWidget

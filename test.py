@@ -2,7 +2,7 @@ import sys
 from PyQt5 import QtWidgets
 from astropy.io import fits
 
-from qfitsview import QFitsView
+from qfitswidget import QFitsWidget
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -10,7 +10,7 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.resize(800, 600)
 
-        self.viewer = QFitsView(self)
+        self.viewer = QFitsWidget(self)
         self.setCentralWidget(self.viewer)
 
         hdu = fits.open(sys.argv[1])
