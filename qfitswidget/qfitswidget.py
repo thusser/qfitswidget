@@ -83,6 +83,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             bytes_per_line = width * 3
 
         # for cubes, move axis
+        # this is necessay, because in FITS we store three different images, i.e. sth like RRRRRGGGGGBBBBB,
+        # but we need RGBRGBRGBRGBRGB
         data = np.moveaxis(self.scaled_data, 0, 2) if len(self.scaled_data.shape) == 3 else self.scaled_data
 
         # create QImage
