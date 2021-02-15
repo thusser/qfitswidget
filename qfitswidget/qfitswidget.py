@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
+from skimage.transform import resize
 
 from .fitswidget import Ui_FitsWidget
 from .norm import *
@@ -44,6 +45,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # store hdu and (scaled) data
         self.hdu = None
         self.data = None
+        self.trimmed_data = None
         self.sorted_data = None
         self.scaled_data = None
         self.pixmap = None
@@ -51,6 +53,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.wcs = None
         self.position_angle = None
         self.mirrored = None
+        self.updating_cuts = False
 
     def _apply_cuts(self):
         # get cuts
@@ -70,17 +73,37 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # now we need to re-create the pixmap
         self._create_qimage()
 
+    def _debayer(self, arr: np.ndarray, pattern: str) -> np.ndarray:
+        """Debayer an image"""
+
+        # what pattern do we have?
+        if pattern == 'GBRG':
+            # pattern is:  GB
+            #              RG
+            R = arr[1::2, 0::2]
+            G = arr[0::2, 0::2] // 2 + arr[1::2, 1::2] // 2
+            B = arr[0::2, 1::2]
+
+        else:
+            raise ValueError('Unknown Bayer pattern.')
+
+        # return rescaled cube
+        return np.array([resize(a, arr.shape, anti_aliasing=False) for a in [R, G, B]])
+
     def _create_qimage(self):
         # get shape of image
-        height, width = self.scaled_data.shape[-2:]
+        height, width = self.data.shape[-2:]
 
         # format
         if len(self.scaled_data.shape) == 2:
+            # plain and simple B/W
             format = QtGui.QImage.Format_Indexed8
-            bytes_per_line = width
+            bytes_per_line = self.data.shape[1]
+
         else:
+            # 3D, i.e. cube, with colour information
             format = QtGui.QImage.Format_RGB888
-            bytes_per_line = width * 3
+            bytes_per_line = self.data.shape[2] * 3
 
         # for cubes, move axis
         # this is necessary, because in FITS we store three different images, i.e. sth like RRRRRGGGGGBBBBB,
@@ -96,26 +119,28 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # now we need to display it
         self.imageView.setImage(flipped, self.position_angle, self.mirrored)
 
-    def _trimsec(self, hdu) -> np.ndarray:
+    def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
 
         Args:
             hdu: HDU to take data from.
+            data: If given, take this instead of data from HDU.
 
         Returns:
             Numpy array with image data.
         """
 
+        # no data?
+        if data is None:
+            data = self.hdu.data.copy()
+
         # keyword not given?
         if 'TRIMSEC' not in hdu.header:
             # return whole data
-            return hdu.data
+            return data
 
         # get value of section
         sec = hdu.header['TRIMSEC']
-
-        # copy data
-        data = hdu.data.copy()
 
         # split values
         s = sec[1:-1].split(',')
@@ -144,8 +169,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             # we need three images of uint8 format
             if hdu.data.shape[0] != 3:
                 raise ValueError('Data cubes only supported with three layers, which are interpreted as RGB.')
-            if hdu.data.dtype != np.uint8:
-                raise ValueError('Color images only supported in RGB24 mode.')
 
         # store HDU and create WCS
         self.hdu = hdu
@@ -161,11 +184,23 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.position_angle = None
             self.mirrored = None
 
+        # do we have a bayer matrix given?
+        if 'BAYERPAT' in self.hdu.header or 'COLORTYP' in self.hdu.header:
+            # got a bayer pattern
+            pattern = self.hdu.header['BAYERPAT' if 'BAYERPAT' in self.hdu.header else 'COLORTYP']
+
+            # debayer iamge
+            self.data = self._debayer(self.hdu.data, pattern)
+
+        else:
+            # just take data
+            self.data = self.hdu.data
+
         # for INT8 images, we don't need cuts
-        is_int8 = hdu.data.dtype == np.uint8
+        is_int8 = self.data.dtype == np.uint8
 
         # colour image?
-        is_color = len(hdu.data.shape) == 3 and hdu.data.shape[0] == 3
+        is_color = len(self.data.shape) == 3 and self.data.shape[0] == 3
 
         # enable GUI elements, only important for first image after start
         self.labelCuts.setEnabled(not is_int8)
@@ -188,15 +223,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     def _trimsec_changed(self):
         # cut trimsec
-        self.data = self._trimsec(self.hdu) if self.checkTrimSec.isChecked() else self.hdu.data
+        self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
 
         # store flattened and sorted pixels
-        self.sorted_data = np.sort(self.data[self.data > 0].flatten())
+        self.sorted_data = np.sort(self.trimmed_data[self.trimmed_data > 0].flatten())
 
         # image type?
-        if self.hdu.data.dtype == np.uint8:
+        if self.trimmed_data.dtype == np.uint8:
             # image is scaled image directly
-            self.scaled_data = np.copy(self.data)
+            self.scaled_data = self.trimmed_data.copy()
             self._create_qimage()
 
         else:
@@ -221,17 +256,29 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         cuts = (np.min(cut), np.max(cut))
 
         # set them and disable text boxes
+        self.updating_cuts = True
         self.spinLoCut.setValue(cuts[0])
         self.spinLoCut.setEnabled(False)
         self.spinHiCut.setValue(cuts[1])
         self.spinHiCut.setEnabled(False)
+        self.updating_cuts = False
+        self._cuts_changed()
 
     def _cuts_changed(self):
-        # get cuts
-        self.cuts = (self.spinLoCut.value(), self.spinHiCut.value())
+        # updating?
+        if self.updating_cuts:
+            return
 
-        # apply them
-        self._apply_cuts()
+        # get them
+        cuts = (self.spinLoCut.value(), self.spinHiCut.value())
+
+        # did they change?
+        if self.cuts != cuts:
+            # store and apply
+            self.cuts = cuts
+
+            # apply them
+            self._apply_cuts()
 
     def _mouse_moved(self, x: float, y: float):
         # show X/Y
@@ -291,7 +338,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # get data in zoom
         x, y = int(x), int(y)
-
 
     def _colormap_changed(self):
         # get name of colormap

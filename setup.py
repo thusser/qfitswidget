@@ -12,6 +12,7 @@ setup(
         'matplotlib',
         'PyQt5',
         'numpy',
-        'astropy'
+        'astropy',
+        'scikit-image'
     ]
 )
