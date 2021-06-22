@@ -285,7 +285,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             c1, c2 = self.cuts
 
             # scale data
-            data = (self.data - c1) / (c2 - c1)
+            data = self.data.copy()
+            if c2 - c2 != 0:
+                data = (data - c1) / (c2 - c1)
 
             # trim
             data[data < 0] = 0
