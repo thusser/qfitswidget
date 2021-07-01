@@ -97,15 +97,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             hdu: HDU to show image from.
         """
 
-        # check supported formats
-        if len(hdu.data.shape) == 2:
-            # any 2D image is supported
-            pass
-        elif len(hdu.data.shape) == 3:
-            # we need three images of uint8 format
-            if hdu.data.shape[0] != 3:
-                raise ValueError('Data cubes only supported with three layers, which are interpreted as RGB.')
-
         # store HDU and create WCS
         self.hdu = hdu
         self.wcs = WCS(hdu.header)
@@ -122,6 +113,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # do we have a bayer matrix given?
         if 'BAYERPAT' in self.hdu.header or 'COLORTYP' in self.hdu.header:
+            # check layers
+            if len(hdu.data.shape) != 2:
+                raise ValueError('Invalid data format.')
+
             # got a bayer pattern
             pattern = self.hdu.header['BAYERPAT' if 'BAYERPAT' in self.hdu.header else 'COLORTYP']
 
@@ -129,8 +124,21 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.data = self._debayer(self.hdu.data, pattern)
 
         else:
-            # just take data
-            self.data = self.hdu.data
+            # 3D, i.e. color, image?
+            if len(hdu.data.shape) == 2:
+                self.data = self.hdu.data.copy()
+            elif len(hdu.data.shape) == 3:
+                # we need three images of uint8 format
+                if hdu.data.shape[0] != 3 and hdu.data.shape[2] != 3:
+                    raise ValueError('Data cubes only supported with three layers, which are interpreted as RGB.')
+                if hdu.data.shape[2] == 3:
+                    # move axis
+                    self.data = np.moveaxis(self.hdu.data, 2, 0)
+                else:
+                    self.data = self.hdu.data.copy()
+
+            else:
+                raise ValueError('Invalid data format.')
 
         # for INT8 images, we don't need cuts
         is_int8 = self.data.dtype == np.uint8
@@ -285,7 +293,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             c1, c2 = self.cuts
 
             # scale data
-            data = (self.data - c1) / (c2 - c1)
+            data = self.data.astype(np.float32)
+            if c2 - c1 != 0:
+                data = (data - c1) / (c2 - c1)
 
             # trim
             data[data < 0] = 0

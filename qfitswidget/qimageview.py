@@ -84,7 +84,7 @@ class QImageView(QtWidgets.QWidget):
         x, y = (w - pw) / 2., (h - ph) / 2.
 
         # draw image
-        painter.drawPixmap(x, y, self._scaled_pixmap)
+        painter.drawPixmap(int(x), int(y), self._scaled_pixmap)
 
         # draw coordinate system
         if self._position_angle is not None and self._mirrored is not None:
@@ -111,22 +111,22 @@ class QImageView(QtWidgets.QWidget):
 
         # draw N line
         x, y = -length * np.sin(self._position_angle), -length * np.cos(self._position_angle)
-        painter.drawLine(50, 50, 50 + x, 50 + y)
+        painter.drawLine(50, 50, int(50 + x), int(50 + y))
 
         # draw N text
         x, y = -text * np.sin(self._position_angle), -text * np.cos(self._position_angle)
-        painter.drawText(50 + x - tw/2, 50 + y + tw/2, 'N')
+        painter.drawText(int(50 + x - tw/2), int(50 + y + tw/2), 'N')
 
         # angle for E
         east_angle = self._position_angle - (np.pi / 2 if self._mirrored else -np.pi / 2)
 
         # draw E line
         x, y = -length * np.sin(east_angle), -length * np.cos(east_angle)
-        painter.drawLine(50, 50, 50 + x, 50 + y)
+        painter.drawLine(50, 50, int(50 + x), int(50 + y))
 
         # draw E text
         x, y = -text * np.sin(east_angle), -text * np.cos(east_angle)
-        painter.drawText(50 + x - tw/2, 50 + y + tw/2, 'E')
+        painter.drawText(int(50 + x - tw/2), int(50 + y + tw/2), 'E')
 
     def cut(self, x: float, y: float, size: int = 5):
         # extract region
