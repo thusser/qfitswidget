@@ -159,7 +159,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.checkTrimSec.setEnabled(True)
 
         # apply trimsec, run in thread
-        self._run_in_thread(self._trim_image)
+        try:
+            # TODO: fix this try/except block!
+            self._run_in_thread(self._trim_image)
+        except ValueError:
+            pass
 
     def _run_in_thread(self, method):
         """Run the given method in a thread.
