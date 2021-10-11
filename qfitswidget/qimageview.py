@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from . import resources
@@ -23,7 +25,7 @@ class QImageView(QtWidgets.QWidget):
         # grab keyboard as well
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
-    def setImage(self, image: QtGui.QImage, position_angle: float, mirrored: bool) -> None:
+    def setImage(self, image: QtGui.QImage, position_angle: Optional[float], mirrored: bool) -> None:
         # set the image
         self._image = image
         self._position_angle = None if position_angle is None else np.radians(position_angle)
@@ -45,7 +47,8 @@ class QImageView(QtWidgets.QWidget):
             return
 
         # set colormap
-        self._image.setColorTable(self._colormap)
+        if self._colormap is not None:
+            self._image.setColorTable(self._colormap)
 
         # scale image
         self._scale_image()
