@@ -353,13 +353,16 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             y: Y position of mouse
         """
 
+        # calculate flipped y
+        flipped_y = self.scaled_data.shape[-2] - y
+
         # show X/Y
         self.textImageX.setText('%.3f' % x)
-        self.textImageY.setText('%.3f' % (self.scaled_data.shape[-2] - y,))
+        self.textImageY.setText('%.3f' % flipped_y)
 
         # convert to RA/Dec and show it
         try:
-            coord = pixel_to_skycoord(x, y, self.wcs)
+            coord = pixel_to_skycoord(x, flipped_y, self.wcs)
             self.textWorldRA.setText(coord.ra.to_string(u.hour, sep=':'))
             self.textWorldDec.setText(coord.dec.to_string(sep=':'))
         except ValueError:
