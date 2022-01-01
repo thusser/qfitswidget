@@ -1,12 +1,11 @@
 from typing import Optional
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PySide2 import QtWidgets, QtCore, QtGui
 import numpy as np
-from . import resources
 
 
 class QImageView(QtWidgets.QWidget):
-    mouseMoved = QtCore.pyqtSignal(float, float)
+    mouseMoved = QtCore.Signal(float, float)
 
     def __init__(self, *args, **kwargs):
         QtWidgets.QWidget.__init__(self, *args, **kwargs)
@@ -25,10 +24,14 @@ class QImageView(QtWidgets.QWidget):
         # grab keyboard as well
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
-    def setImage(self, image: QtGui.QImage, position_angle: Optional[float], mirrored: bool) -> None:
+    def setImage(
+        self, image: QtGui.QImage, position_angle: Optional[float], mirrored: bool
+    ) -> None:
         # set the image
         self._image = image
-        self._position_angle = None if position_angle is None else np.radians(position_angle)
+        self._position_angle = (
+            None if position_angle is None else np.radians(position_angle)
+        )
         self._mirrored = mirrored
 
         # update image
@@ -36,7 +39,9 @@ class QImageView(QtWidgets.QWidget):
 
     def setColormap(self, cm) -> None:
         # create colormap and set it
-        self._colormap = [QtGui.qRgb(*cm.to_rgba(i, bytes=True)[:3]) for i in range(256)]
+        self._colormap = [
+            QtGui.qRgb(*cm.to_rgba(i, bytes=True)[:3]) for i in range(256)
+        ]
 
         # update image
         self._update_image()
@@ -84,7 +89,7 @@ class QImageView(QtWidgets.QWidget):
         # get x/y coordinates to draw image in centre
         w, h = self.width(), self.height()
         pw, ph = self._scaled_pixmap.width(), self._scaled_pixmap.height()
-        x, y = (w - pw) / 2., (h - ph) / 2.
+        x, y = (w - pw) / 2.0, (h - ph) / 2.0
 
         # draw image
         painter.drawPixmap(int(x), int(y), self._scaled_pixmap)
@@ -103,9 +108,9 @@ class QImageView(QtWidgets.QWidget):
         painter.setPen(pen)
 
         # font
-        font = QtGui.QFont('times', 10)
+        font = QtGui.QFont("times", 10)
         fm = QtGui.QFontMetrics(font)
-        tw = fm.width('N')
+        tw = fm.width("N")
         painter.setFont(font)
 
         # length of line and distance of text
@@ -113,15 +118,21 @@ class QImageView(QtWidgets.QWidget):
         text = 40
 
         # draw N line
-        x, y = -length * np.sin(self._position_angle), -length * np.cos(self._position_angle)
+        x, y = -length * np.sin(self._position_angle), -length * np.cos(
+            self._position_angle
+        )
         painter.drawLine(50, 50, int(50 + x), int(50 + y))
 
         # draw N text
-        x, y = -text * np.sin(self._position_angle), -text * np.cos(self._position_angle)
-        painter.drawText(int(50 + x - tw/2), int(50 + y + tw/2), 'N')
+        x, y = -text * np.sin(self._position_angle), -text * np.cos(
+            self._position_angle
+        )
+        painter.drawText(int(50 + x - tw / 2), int(50 + y + tw / 2), "N")
 
         # angle for E
-        east_angle = self._position_angle - (np.pi / 2 if self._mirrored else -np.pi / 2)
+        east_angle = self._position_angle - (
+            np.pi / 2 if self._mirrored else -np.pi / 2
+        )
 
         # draw E line
         x, y = -length * np.sin(east_angle), -length * np.cos(east_angle)
@@ -129,7 +140,7 @@ class QImageView(QtWidgets.QWidget):
 
         # draw E text
         x, y = -text * np.sin(east_angle), -text * np.cos(east_angle)
-        painter.drawText(int(50 + x - tw/2), int(50 + y + tw/2), 'E')
+        painter.drawText(int(50 + x - tw / 2), int(50 + y + tw / 2), "E")
 
     def cut(self, x: float, y: float, size: int = 5):
         # extract region
@@ -145,7 +156,7 @@ class QImageView(QtWidgets.QWidget):
         y = (event.y() - self._image_rect[1]) / self._image_rect[3]
 
         # trim to 0..1
-        x, y = min(max(x, 0), 1),  min(max(y, 0), 1)
+        x, y = min(max(x, 0), 1), min(max(y, 0), 1)
 
         # scale to full image size
         xi, yi = x * self._image.width(), y * self._image.height()
