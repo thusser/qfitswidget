@@ -42,9 +42,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.position_angle = None
         self.mirrored = None
 
-        # mouse
-        # self.imageView.mouseMoved.connect(self._mouse_moved)
-
         # Qt canvas
         self.figure, self.ax = plt.subplots()
         self.canvas = FigureCanvas(self.figure)
@@ -53,6 +50,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         )
         self.widgetCanvas.layout().addWidget(self.canvas)
         self.widgetTools.layout().addWidget(self.tools)
+
+        # mouse
+        plt.connect("motion_notify_event", self._mouse_moved)
 
         # set cuts
         self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
@@ -266,16 +266,18 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.spinLoCut.blockSignals(True)
         self.spinHiCut.blockSignals(True)
 
-    def _mouse_moved(self, x: float, y: float):
+    def _mouse_moved(self, event):
         """Called, whenever the mouse is moved.
 
         Args:
-            x: X position of mouse
-            y: Y position of mouse
+            event: MPL event
         """
 
+        # get x/y
+        x, y = event.xdata, event.ydata
+
         # calculate flipped y
-        flipped_y = self.scaled_data.shape[-2] - y
+        flipped_y = self.trimmed_data.shape[-2] - y
 
         # show X/Y
         self.textImageX.setText("%.3f" % x)
@@ -319,42 +321,18 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             pass
 
         # get zoom in and scale it to 100x100
-        pix = self.imageView.cut(x, y, 10).scaled(101, 101)
+        # pix = self.imageView.cut(x, y, 10).scaled(101, 101)
 
         # draw central pixel
-        painter = QtGui.QPainter(pix)
-        painter.setPen(QtGui.QPen(QtCore.Qt.white, 1))
-        painter.drawRect(48, 48, 4, 4)
-        painter.setPen(QtGui.QPen(QtCore.Qt.black, 1))
-        painter.drawRect(47, 47, 6, 6)
-        painter.end()
+        # painter = QtGui.QPainter(pix)
+        # painter.setPen(QtGui.QPen(QtCore.Qt.white, 1))
+        # painter.drawRect(48, 48, 4, 4)
+        # painter.setPen(QtGui.QPen(QtCore.Qt.black, 1))
+        # painter.drawRect(47, 47, 6, 6)
+        # painter.end()
 
         # show zoom
-        self.labelZoom.setPixmap(pix)
-
-    def _colormap_changed(self):
-        """Called, when colormap is changed."""
-        return
-
-        # get name of colormap
-        name = self.comboColormap.currentText()
-        if self.checkColormapReverse.isChecked():
-            name += "_r"
-
-        # get normalization
-        stretch = self.comboStretch.currentText()
-        if stretch == "linear":
-            norm = colors.Normalize(vmin=0, vmax=250)
-        elif stretch == "log":
-            norm = colors.LogNorm(vmin=0.1, vmax=250)
-        elif stretch == "sqrt":
-            norm = FuncNorm(np.sqrt, vmin=0, vmax=250)
-        elif stretch == "squared":
-            norm = colors.PowerNorm(2, vmin=0, vmax=250)
-        elif stretch == "asinh":
-            norm = FuncNorm(np.arcsinh, vmin=0, vmax=250)
-        else:
-            raise ValueError("Invalid stretch")
+        # self.labelZoom.setPixmap(pix)
 
     def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
