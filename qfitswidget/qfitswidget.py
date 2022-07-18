@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
@@ -14,30 +16,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from .fitswidget import Ui_FitsWidget
 from .norm import *
 
-
-class ProcessThread(QtCore.QThread):
-    """Worker thread for processing images and all display options applied to them."""
-
-    """Signal emitted when the image is readily processed."""
-    imageReady = pyqtSignal(QtGui.QImage)
-
-    def __init__(self, method, *args, **kwargs):
-        """Init a new worker thread.
-
-        Args:
-            method: Method to run in thread.
-        """
-        QtCore.QThread.__init__(self, *args, **kwargs)
-        self.method = method
-
-    def run(self):
-        """Run method in thread."""
-
-        # run method and receive processed image
-        image = self.method()
-
-        # emit signal with image
-        self.imageReady.emit(image)
+plt.style.use("dark_background")
 
 
 class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
@@ -46,7 +25,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     """Signal emitted when new cuts have been calculated."""
     calculatedCuts = pyqtSignal(int, int)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         """Init new widget."""
         QtWidgets.QWidget.__init__(self, parent)
         self.setupUi(self)
@@ -62,7 +41,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.wcs = None
         self.position_angle = None
         self.mirrored = None
-        self.thread = None
 
         # mouse
         # self.imageView.mouseMoved.connect(self._mouse_moved)
@@ -70,8 +48,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # Qt canvas
         self.figure, self.ax = plt.subplots()
         self.canvas = FigureCanvas(self.figure)
-        # self.plotTools = NavigationToolbar2QT(self.canvas, self.tabImage)
-        self.widget.layout().addWidget(self.canvas)
+        self.tools = NavigationToolbar2QT(
+            self.canvas, self.widgetTools, coordinates=False
+        )
+        self.widgetCanvas.layout().addWidget(self.canvas)
+        self.widgetTools.layout().addWidget(self.tools)
 
         # set cuts
         self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
@@ -86,9 +67,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             sorted([cm for cm in plt.colormaps() if not cm.endswith("_r")])
         )
         self.comboColormap.setCurrentText("gray")
-        self._colormap_changed()
 
-    def display(self, hdu):
+    def display(self, hdu) -> None:
         """Display image from given HDU.
 
         Args:
@@ -164,8 +144,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._trim_image()
         self._draw_image()
 
-    @pyqtSlot(bool, name="on_checkTrimSec_stateChanged")
-    def _trim_image(self):
+    @pyqtSlot(int, name="on_checkTrimSec_stateChanged")
+    def _trim_image(self) -> None:
         # cut trimsec
         self.trimmed_data = (
             self._trimsec(self.hdu, self.data)
@@ -181,18 +161,13 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     @pyqtSlot(str, name="on_comboStretch_currentTextChanged")
     @pyqtSlot(str, name="on_comboColormap_currentTextChanged")
-    @pyqtSlot(bool, name="on_checkColormapReverse_stateChanged")
+    @pyqtSlot(int, name="on_checkColormapReverse_stateChanged")
     @pyqtSlot(str, name="on_comboCuts_currentTextChanged")
     @pyqtSlot(float, name="on_spinLoCut_valueChanged")
     @pyqtSlot(float, name="on_spinLoCut_valueChanged")
     def _draw_image(self):
         if self.sorted_data is None:
             return
-
-        # get name of colormap
-        cmap = self.comboColormap.currentText()
-        if self.checkColormapReverse.isChecked():
-            cmap += "_r"
 
         # cuts
         self._evaluate_cuts_preset()
@@ -214,13 +189,35 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         else:
             raise ValueError("Invalid stretch")
 
+        # get name of colormap
+        cmap = self.comboColormap.currentText()
+        if self.checkColormapReverse.isChecked():
+            cmap += "_r"
+
+        # get colormap
+        cm = ScalarMappable(norm=norm, cmap=plt.get_cmap(cmap))
+
+        # create colorbar image
+        colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format_ARGB32)
+        for i, f in enumerate(np.linspace(vmin, vmax, 256)):
+            rgba = cm.to_rgba(f, bytes=True)
+            c = QtGui.QColor(*rgba)
+            colorbar.setPixelColor(0, i, c)
+
+        # set colorbar
+        self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
+
         # draw image
         self.ax.cla()
-        self.ax.imshow(
-            self.trimmed_data,
-            cmap=cmap,
-            norm=norm,
-        )
+        with plt.style.context("dark_background"):
+            self.ax.imshow(
+                self.trimmed_data,
+                cmap=cmap,
+                norm=norm,
+            )
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        self.figure.subplots_adjust(0, 0.005, 1, 1)
         self.canvas.draw()
 
     def _evaluate_cuts_preset(self):
@@ -358,22 +355,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             norm = FuncNorm(np.arcsinh, vmin=0, vmax=250)
         else:
             raise ValueError("Invalid stretch")
-
-        # get colormap
-        cm = ScalarMappable(norm=norm, cmap=plt.get_cmap(name))
-
-        # set it
-        self.imageView.setColormap(cm)
-
-        # create colorbar image
-        colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format_ARGB32)
-        for i in range(256):
-            rgba = cm.to_rgba(i, bytes=True)
-            c = QtGui.QColor(*rgba)
-            colorbar.setPixelColor(0, i, c)
-
-        # set colorbar
-        self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
     def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
