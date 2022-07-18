@@ -250,7 +250,7 @@
       </layout>
      </item>
      <item>
-      <widget class="QLabel" name="labelZoom">
+      <widget class="QWidget" name="widgetZoom" native="true">
        <property name="minimumSize">
         <size>
          <width>101</width>
@@ -263,18 +263,20 @@
          <height>101</height>
         </size>
        </property>
-       <property name="frameShape">
-        <enum>QFrame::StyledPanel</enum>
-       </property>
-       <property name="frameShadow">
-        <enum>QFrame::Raised</enum>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-       <property name="scaledContents">
-        <bool>true</bool>
-       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+       </layout>
       </widget>
      </item>
     </layout>

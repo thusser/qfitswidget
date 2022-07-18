@@ -41,6 +41,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.wcs = None
         self.position_angle = None
         self.mirrored = None
+        self.mouse_pos = None
 
         # Qt canvas
         self.figure, self.ax = plt.subplots()
@@ -53,6 +54,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # mouse
         plt.connect("motion_notify_event", self._mouse_moved)
+
+        # and for zoom
+        self.figure_zoom, self.ax_zoom = plt.subplots()
+        self.canvas_zoom = FigureCanvas(self.figure_zoom)
+        self.widgetZoom.layout().addWidget(self.canvas_zoom)
 
         # set cuts
         self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
@@ -165,7 +171,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     @pyqtSlot(str, name="on_comboCuts_currentTextChanged")
     @pyqtSlot(float, name="on_spinLoCut_valueChanged")
     @pyqtSlot(float, name="on_spinLoCut_valueChanged")
-    def _draw_image(self):
+    def _draw_image(self) -> None:
         if self.sorted_data is None:
             return
 
@@ -208,17 +214,21 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
         # draw image
-        self.ax.cla()
-        with plt.style.context("dark_background"):
-            self.ax.imshow(
-                self.trimmed_data,
-                cmap=cmap,
-                norm=norm,
-            )
-        self.ax.set_xticks([])
-        self.ax.set_yticks([])
-        self.figure.subplots_adjust(0, 0.005, 1, 1)
-        self.canvas.draw()
+        for ax in [self.ax, self.ax_zoom]:
+            ax.cla()
+            with plt.style.context("dark_background"):
+                ax.imshow(
+                    self.trimmed_data,
+                    cmap=cmap,
+                    norm=norm,
+                )
+            # ax.set_xticks([])
+            # ax.set_yticks([])
+            ax.axis("off")
+        for figure in [self.figure, self.figure_zoom]:
+            figure.subplots_adjust(0, 0.005, 1, 1)
+        for canvas in [self.canvas, self.canvas_zoom]:
+            canvas.draw()
 
     def _evaluate_cuts_preset(self):
         """When the cuts preset has changed, calculate the new cuts"""
@@ -276,6 +286,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # get x/y
         x, y = event.xdata, event.ydata
 
+        # only main canvas!
+        if event.canvas != self.canvas or x is None or y is None:
+            return
+
         # calculate flipped y
         flipped_y = self.trimmed_data.shape[-2] - y
 
@@ -320,19 +334,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             # outside range
             pass
 
-        # get zoom in and scale it to 100x100
-        # pix = self.imageView.cut(x, y, 10).scaled(101, 101)
-
-        # draw central pixel
-        # painter = QtGui.QPainter(pix)
-        # painter.setPen(QtGui.QPen(QtCore.Qt.white, 1))
-        # painter.drawRect(48, 48, 4, 4)
-        # painter.setPen(QtGui.QPen(QtCore.Qt.black, 1))
-        # painter.drawRect(47, 47, 6, 6)
-        # painter.end()
-
-        # show zoom
-        # self.labelZoom.setPixmap(pix)
+        # limit zoom
+        self.ax_zoom.set_xlim((x - 10, x + 10))
+        self.ax_zoom.set_ylim((y + 10, y - 10))
+        self.canvas_zoom.draw()
 
     def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
