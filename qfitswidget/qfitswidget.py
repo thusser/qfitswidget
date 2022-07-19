@@ -1,3 +1,4 @@
+import time
 from typing import Optional
 import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -143,7 +144,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
 
         # store flattened and sorted pixels
-        self.sorted_data = np.sort(self.trimmed_data[self.trimmed_data > 0].flatten())
+        self.sorted_data = np.sort(self.trimmed_data[self.trimmed_data > 0].flatten(), kind="stable")
 
         # draw it
         self._draw_image()
@@ -229,7 +230,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             # just enable text boxes
             self.spinLoCut.setEnabled(True)
             self.spinHiCut.setEnabled(True)
-            return self._apply_cuts()
+            return
 
         # get percentage
         percent = float(preset[:-1])
