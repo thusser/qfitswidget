@@ -181,7 +181,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # for RGB data, we need to normalize manually, since it's not done by imshow
         if len(self.trimmed_data.shape) == 3:
-            self.scaled_data = [norm(self.trimmed_data[d, :, :]) for d in range(self.trimmed_data.shape[0])]
+            self.scaled_data = np.array([norm(self.trimmed_data[d, :, :]) for d in range(self.trimmed_data.shape[0])])
         else:
             self.scaled_data = self.trimmed_data
 
@@ -203,6 +203,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # set colorbar
         self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
+        # to qimage
+        print("qimage:", time.time())
+        qimg = self._create_qimage()
+        print("draw:", time.time())
+
         # draw image
         self._draw(self.ax, self.figure, self.canvas, cmap, norm)
         # self._draw(self.ax_zoom, self.figure_zoom, self.canvas_zoom, cmap, norm)
@@ -216,10 +221,42 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # plot
         with plt.style.context("dark_background"):
-            ax.imshow(self.scaled_data, cmap=None if rgb else cmap, interpolation="nearest", origin="lower")
+            ax.imshow(self.trimmed_data, cmap=None if rgb else cmap, interpolation="nearest", origin="lower")
         ax.axis("off")
         figure.subplots_adjust(0, 0.005, 1, 1)
         canvas.draw()
+
+    def _create_qimage(self):
+        """Create a QImage from the data.
+        Returns:
+            Processed image.
+        """
+
+        # get shape of image
+        height, width = self.data.shape[-2:]
+
+        # format
+        if len(self.scaled_data.shape) == 2:
+            # plain and simple B/W
+            format = QtGui.QImage.Format_Indexed8
+            bytes_per_line = self.data.shape[1]
+
+        else:
+            # 3D, i.e. cube, with colour information
+            format = QtGui.QImage.Format_RGB888
+            bytes_per_line = self.data.shape[2] * 3
+
+        # for cubes, move axis
+        # this is necessary, because in FITS we store three different images, i.e. sth like RRRRRGGGGGBBBBB,
+        # but we need RGBRGBRGBRGBRGB
+        data = np.moveaxis(self.scaled_data, 0, 2) if len(self.scaled_data.shape) == 3 else self.scaled_data
+
+        # create QImage
+        image = QtGui.QImage(data.tobytes(), width, height, bytes_per_line, format)
+
+        # flip and return it
+        flipped = image.transformed(QtGui.QTransform().scale(1, -1))
+        return flipped
 
     def _evaluate_cuts_preset(self):
         """When the cuts preset has changed, calculate the new cuts"""
