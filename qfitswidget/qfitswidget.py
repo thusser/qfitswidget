@@ -3,7 +3,7 @@ from typing import Optional
 import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 import astropy.units as u
@@ -19,6 +19,55 @@ from .fitswidget import Ui_FitsWidget
 from .norm import *
 
 plt.style.use("dark_background")
+
+
+class ProcessMouseHoverSignals(QtCore.QObject):
+    finished = pyqtSignal(str, str, str, str)
+
+
+class ProcessMouseHover(QRunnable):
+    def __init__(self, fits_widget):
+        QRunnable.__init__(self)
+        self.signals = ProcessMouseHoverSignals()
+        self.fits_widget = fits_widget
+        self.x = fits_widget.mouse_pos[0]
+        self.y = fits_widget.mouse_pos[1]
+        self.wcs = fits_widget.wcs
+        self.data = fits_widget.data
+
+    def run(self):
+        # convert to RA/Dec and show it
+        try:
+            coord = pixel_to_skycoord(self.x, self.y, self.wcs)
+            ra = coord.ra.to_string(u.hour, sep=":")
+            dec = coord.dec.to_string(sep=":")
+        except ValueError:
+            ra, dec = "", ""
+
+        # mean/max
+        iy, ix = int(self.y), int(self.x)
+        if len(self.data.shape) == 2:
+            cut = self.data[iy - 10 : iy + 11, ix - 10 : ix + 11]
+        else:
+            cut = self.data[iy - 10 : iy + 11, ix - 10 : ix + 11, :]
+
+        # calculate and show
+        try:
+            mean = f"{np.mean(cut):.2f}"
+            maxi = f"{np.max(cut):.2f}"
+        except ValueError:
+            mean, maxi = "", ""
+
+        # zoom
+        # cut_normed = self._normalize_data(cut)
+        # print(cut_normed)
+        # self._draw(cut_normed, self.ax_zoom, self.figure_zoom, self.canvas_zoom)
+
+        # emit
+        self.signals.finished.emit(ra, dec, mean, maxi)
+
+        # no idea why, but it's a good idea to sleep a little before we finish
+        time.sleep(0.01)
 
 
 class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
@@ -44,6 +93,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.position_angle = None
         self.mirrored = None
         self.mouse_pos = None
+        self.cmap = None
+        self.norm = None
 
         # Qt canvas
         self.figure, self.ax = plt.subplots()
@@ -71,6 +122,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # set colormaps
         self.comboColormap.addItems(sorted([cm for cm in plt.colormaps() if not cm.endswith("_r")]))
         self.comboColormap.setCurrentText("gray")
+
+        # mouse over update thread
+        # self._mouse_over_thread = threading
+
+        self.thread = QtCore.QThreadPool()
+        self.thread.setMaxThreadCount(1)
 
     def display(self, hdu) -> None:
         """Display image from given HDU.
@@ -167,31 +224,28 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # get normalization
         stretch = self.comboStretch.currentText()
         if stretch == "linear":
-            norm = colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
+            self.norm = colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "log":
-            norm = colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
+            self.norm = colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "sqrt":
-            norm = FuncNorm(np.sqrt, vmin=vmin, vmax=vmax, clip=True)
+            self.norm = FuncNorm(np.sqrt, vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "squared":
-            norm = colors.PowerNorm(2, vmin=vmin, vmax=vmax, clip=True)
+            self.norm = colors.PowerNorm(2, vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "asinh":
-            norm = FuncNorm(np.arcsinh, vmin=vmin, vmax=vmax, clip=True)
+            self.norm = FuncNorm(np.arcsinh, vmin=vmin, vmax=vmax, clip=True)
         else:
             raise ValueError("Invalid stretch")
 
-        # for RGB data, we need to normalize manually, since it's not done by imshow
-        if len(self.trimmed_data.shape) == 3:
-            self.scaled_data = np.array([norm(self.trimmed_data[d, :, :]) for d in range(self.trimmed_data.shape[0])])
-        else:
-            self.scaled_data = self.trimmed_data
+        # normalize data
+        self.scaled_data = self.normalize_data(self.trimmed_data)
 
         # get name of colormap
-        cmap = self.comboColormap.currentText()
+        self.cmap = self.comboColormap.currentText()
         if self.checkColormapReverse.isChecked():
-            cmap += "_r"
+            self.cmap += "_r"
 
         # get colormap
-        cm = ScalarMappable(norm=norm, cmap=plt.get_cmap(cmap))
+        cm = ScalarMappable(norm=self.norm, cmap=plt.get_cmap(self.cmap))
 
         # create colorbar image
         colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format_ARGB32)
@@ -203,25 +257,26 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # set colorbar
         self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
-        # to qimage
-        print("qimage:", time.time())
-        qimg = self._create_qimage()
-        print("draw:", time.time())
-
         # draw image
-        self._draw(self.ax, self.figure, self.canvas, cmap, norm)
-        # self._draw(self.ax_zoom, self.figure_zoom, self.canvas_zoom, cmap, norm)
+        self._draw(self.scaled_data, self.ax, self.figure, self.canvas)
 
-    def _draw(self, ax, figure, canvas, cmap, norm):
+    def normalize_data(self, data):
+        # for RGB data, we need to normalize manually, since it's not done by imshow
+        if len(data.shape) == 3:
+            return np.array([self.norm(data[d, :, :]) for d in range(data.shape[0])])
+        else:
+            return self.norm(data)
+
+    def _draw(self, data, ax, figure, canvas):
         # clear axis
         ax.cla()
 
         # RGB?
-        rgb = len(self.trimmed_data.shape) == 3
+        rgb = len(data.shape) == 3
 
         # plot
         with plt.style.context("dark_background"):
-            ax.imshow(self.trimmed_data, cmap=None if rgb else cmap, interpolation="nearest", origin="lower")
+            ax.imshow(data, cmap=None if rgb else self.cmap, interpolation="nearest", origin="lower")
         ax.axis("off")
         figure.subplots_adjust(0, 0.005, 1, 1)
         canvas.draw()
@@ -318,18 +373,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         if event.canvas != self.canvas or x is None or y is None:
             return
 
+        # store position
+        self.mouse_pos = (x, y)
+
         # show X/Y
         self.textImageX.setText("%.3f" % x)
         self.textImageY.setText("%.3f" % y)
-
-        # convert to RA/Dec and show it
-        try:
-            coord = pixel_to_skycoord(x, y, self.wcs)
-            self.textWorldRA.setText(coord.ra.to_string(u.hour, sep=":"))
-            self.textWorldDec.setText(coord.dec.to_string(sep=":"))
-        except ValueError:
-            self.textWorldRA.clear()
-            self.textWorldDec.clear()
 
         # get value
         try:
@@ -339,25 +388,18 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             value = ""
         self.textPixelValue.setText(str(value))
 
-        # mean/max
-        try:
-            # cut
-            if len(self.hdu.data.shape) == 2:
-                cut = self.hdu.data[iy - 10 : iy + 11, ix - 10 : ix + 11]
-            else:
-                cut = self.hdu.data[:, iy - 10 : iy + 11, ix - 10 : ix + 11]
+        # start in thread
+        t = ProcessMouseHover(self)
+        t.signals.finished.connect(self._update_mouse_over)
+        self.thread.tryStart(t)
 
-            # calculate and show
-            if all([s > 0 for s in cut.shape]):
-                self.textAreaMean.setText("%.2f" % np.mean(cut))
-                self.textAreaMax.setText("%.2f" % np.max(cut))
-            else:
-                self.textAreaMean.clear()
-                self.textAreaMax.clear()
+    @pyqtSlot(str, str, str, str)
+    def _update_mouse_over(self, ra, dec, mean, maxi):
+        self.textWorldRA.setText(ra)
+        self.textWorldDec.setText(dec)
 
-        except ValueError:
-            # outside range
-            pass
+        self.textAreaMean.setText(mean)
+        self.textAreaMax.setText(maxi)
 
         # limit zoom
         # self.ax_zoom.set_xlim((x - 10, x + 10))
