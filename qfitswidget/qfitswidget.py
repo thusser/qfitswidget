@@ -53,16 +53,18 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.imageView.mouseMoved.connect(self._mouse_moved)
 
         # set cuts
-        self.comboCuts.addItems(['100.0%', '99.9%', '99.0%', '95.0%', 'Custom'])
-        self.comboCuts.setCurrentText('99.9%')
+        self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
+        self.comboCuts.setCurrentText("99.9%")
 
         # set stretch functions
-        self.comboStretch.addItems(['linear', 'log', 'sqrt', 'squared', 'asinh'])
-        self.comboStretch.setCurrentText('sqrt')
+        self.comboStretch.addItems(["linear", "log", "sqrt", "squared", "asinh"])
+        self.comboStretch.setCurrentText("sqrt")
 
         # set colormaps
-        self.comboColormap.addItems(sorted([cm for cm in plt.colormaps() if not cm.endswith('_r')]))
-        self.comboColormap.setCurrentText('gray')
+        self.comboColormap.addItems(
+            sorted([cm for cm in plt.colormaps() if not cm.endswith("_r")])
+        )
+        self.comboColormap.setCurrentText("gray")
         self._colormap_changed()
 
         # store hdu and (scaled) data
@@ -79,10 +81,18 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.thread = None
 
         # connect signals/slots that start threads
-        self.comboCuts.currentTextChanged.connect(lambda: self._run_in_thread(self._evaluate_cuts_preset))
-        self.spinLoCut.valueChanged.connect(lambda: self._run_in_thread(self._apply_cuts))
-        self.spinHiCut.valueChanged.connect(lambda: self._run_in_thread(self._apply_cuts))
-        self.checkTrimSec.stateChanged.connect(lambda: self._run_in_thread(self._trim_image))
+        self.comboCuts.currentTextChanged.connect(
+            lambda: self._run_in_thread(self._evaluate_cuts_preset)
+        )
+        self.spinLoCut.valueChanged.connect(
+            lambda: self._run_in_thread(self._apply_cuts)
+        )
+        self.spinHiCut.valueChanged.connect(
+            lambda: self._run_in_thread(self._apply_cuts)
+        )
+        self.checkTrimSec.stateChanged.connect(
+            lambda: self._run_in_thread(self._trim_image)
+        )
 
         # and now all the others
         self.comboStretch.currentTextChanged.connect(self._colormap_changed)
@@ -102,9 +112,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.wcs = WCS(hdu.header)
 
         # get position angle and check whether image was mirrored
-        if 'PC1_1' in self.hdu.header:
-            CD11, CD12 = self.hdu.header['PC1_1'], self.hdu.header['PC1_2']
-            CD21, CD22 = self.hdu.header['PC2_1'], self.hdu.header['PC2_2']
+        if "PC1_1" in self.hdu.header:
+            CD11, CD12 = self.hdu.header["PC1_1"], self.hdu.header["PC1_2"]
+            CD21, CD22 = self.hdu.header["PC2_1"], self.hdu.header["PC2_2"]
             self.position_angle = np.degrees(np.arctan2(CD12, CD11))
             self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
         else:
@@ -112,13 +122,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.mirrored = None
 
         # do we have a bayer matrix given?
-        if 'BAYERPAT' in self.hdu.header or 'COLORTYP' in self.hdu.header:
+        if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
             # check layers
             if len(hdu.data.shape) != 2:
-                raise ValueError('Invalid data format.')
+                raise ValueError("Invalid data format.")
 
             # got a bayer pattern
-            pattern = self.hdu.header['BAYERPAT' if 'BAYERPAT' in self.hdu.header else 'COLORTYP']
+            pattern = self.hdu.header[
+                "BAYERPAT" if "BAYERPAT" in self.hdu.header else "COLORTYP"
+            ]
 
             # debayer iamge
             self.data = self._debayer(self.hdu.data, pattern)
@@ -130,7 +142,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             elif len(hdu.data.shape) == 3:
                 # we need three images of uint8 format
                 if hdu.data.shape[0] != 3 and hdu.data.shape[2] != 3:
-                    raise ValueError('Data cubes only supported with three layers, which are interpreted as RGB.')
+                    raise ValueError(
+                        "Data cubes only supported with three layers, which are interpreted as RGB."
+                    )
                 if hdu.data.shape[2] == 3:
                     # move axis
                     self.data = np.moveaxis(self.hdu.data, 2, 0)
@@ -138,7 +152,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                     self.data = self.hdu.data.copy()
 
             else:
-                raise ValueError('Invalid data format.')
+                raise ValueError("Invalid data format.")
 
         # for INT8 images, we don't need cuts
         is_int8 = self.data.dtype == np.uint8
@@ -174,7 +188,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # only one thread at a time
         if self.thread is not None and self.thread.isRunning():
-            raise ValueError('Thread already running.')
+            raise ValueError("Thread already running.")
 
         # disable widget and show wait cursor
         self.setEnabled(False)
@@ -211,10 +225,16 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         """
 
         # cut trimsec
-        self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
+        self.trimmed_data = (
+            self._trimsec(self.hdu, self.data)
+            if self.checkTrimSec.isChecked()
+            else self.data
+        )
 
         # store flattened and sorted pixels
-        self.sorted_data = np.sort(self.trimmed_data[self.trimmed_data > 0].flatten())
+        self.sorted_data = np.sort(
+            self.trimmed_data[self.trimmed_data > 0].flatten(), kind="stable"
+        )
 
         # image type?
         if self.trimmed_data.dtype == np.uint8:
@@ -231,7 +251,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # get preset
         preset = self.comboCuts.currentText()
-        if preset == 'Custom':
+        if preset == "Custom":
             # just enable text boxes
             self.spinLoCut.setEnabled(True)
             self.spinHiCut.setEnabled(True)
@@ -241,7 +261,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         percent = float(preset[:-1])
 
         # get number of pixels to discard at both ends
-        n = int(len(self.sorted_data) * (1. - (percent / 100.)))
+        n = int(len(self.sorted_data) * (1.0 - (percent / 100.0)))
 
         # get min/max in cut range
         cut = self.sorted_data[n:-n] if n > 0 else self.sorted_data
@@ -336,7 +356,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # for cubes, move axis
         # this is necessary, because in FITS we store three different images, i.e. sth like RRRRRGGGGGBBBBB,
         # but we need RGBRGBRGBRGBRGB
-        data = np.moveaxis(self.scaled_data, 0, 2) if len(self.scaled_data.shape) == 3 else self.scaled_data
+        data = (
+            np.moveaxis(self.scaled_data, 0, 2)
+            if len(self.scaled_data.shape) == 3
+            else self.scaled_data
+        )
 
         # create QImage
         image = QtGui.QImage(data.tobytes(), width, height, bytes_per_line, format)
@@ -357,14 +381,14 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         flipped_y = self.scaled_data.shape[-2] - y
 
         # show X/Y
-        self.textImageX.setText('%.3f' % x)
-        self.textImageY.setText('%.3f' % flipped_y)
+        self.textImageX.setText("%.3f" % x)
+        self.textImageY.setText("%.3f" % flipped_y)
 
         # convert to RA/Dec and show it
         try:
             coord = pixel_to_skycoord(x, flipped_y, self.wcs)
-            self.textWorldRA.setText(coord.ra.to_string(u.hour, sep=':'))
-            self.textWorldDec.setText(coord.dec.to_string(sep=':'))
+            self.textWorldRA.setText(coord.ra.to_string(u.hour, sep=":"))
+            self.textWorldDec.setText(coord.dec.to_string(sep=":"))
         except ValueError:
             self.textWorldRA.clear()
             self.textWorldDec.clear()
@@ -374,21 +398,21 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             iy, ix = self.hdu.data.shape[-2] - int(y), int(x)
             value = self.hdu.data[iy, ix]
         except IndexError:
-            value = ''
+            value = ""
         self.textPixelValue.setText(str(value))
 
         # mean/max
         try:
             # cut
             if len(self.hdu.data.shape) == 2:
-                cut = self.hdu.data[iy - 10:iy + 11, ix - 10: ix + 11]
+                cut = self.hdu.data[iy - 10 : iy + 11, ix - 10 : ix + 11]
             else:
-                cut = self.hdu.data[:, iy - 10:iy + 11, ix - 10: ix + 11]
+                cut = self.hdu.data[:, iy - 10 : iy + 11, ix - 10 : ix + 11]
 
             # calculate and show
             if all([s > 0 for s in cut.shape]):
-                self.textAreaMean.setText('%.2f' % np.mean(cut))
-                self.textAreaMax.setText('%.2f' % np.max(cut))
+                self.textAreaMean.setText("%.2f" % np.mean(cut))
+                self.textAreaMax.setText("%.2f" % np.max(cut))
             else:
                 self.textAreaMean.clear()
                 self.textAreaMax.clear()
@@ -417,22 +441,22 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # get name of colormap
         name = self.comboColormap.currentText()
         if self.checkColormapReverse.isChecked():
-            name += '_r'
+            name += "_r"
 
         # get normalization
         stretch = self.comboStretch.currentText()
-        if stretch == 'linear':
+        if stretch == "linear":
             norm = colors.Normalize(vmin=0, vmax=250)
-        elif stretch == 'log':
+        elif stretch == "log":
             norm = colors.LogNorm(vmin=0.1, vmax=250)
-        elif stretch == 'sqrt':
+        elif stretch == "sqrt":
             norm = FuncNorm(np.sqrt, vmin=0, vmax=250)
-        elif stretch == 'squared':
+        elif stretch == "squared":
             norm = colors.PowerNorm(2, vmin=0, vmax=250)
-        elif stretch == 'asinh':
+        elif stretch == "asinh":
             norm = FuncNorm(np.arcsinh, vmin=0, vmax=250)
         else:
-            raise ValueError('Invalid stretch')
+            raise ValueError("Invalid stretch")
 
         # get colormap
         cm = ScalarMappable(norm=norm, cmap=plt.get_cmap(name))
@@ -466,17 +490,17 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             data = self.hdu.data.copy()
 
         # keyword not given?
-        if 'TRIMSEC' not in hdu.header:
+        if "TRIMSEC" not in hdu.header:
             # return whole data
             return data
 
         # get value of section
-        sec = hdu.header['TRIMSEC']
+        sec = hdu.header["TRIMSEC"]
 
         # split values
-        s = sec[1:-1].split(',')
-        x = s[0].split(':')
-        y = s[1].split(':')
+        s = sec[1:-1].split(",")
+        x = s[0].split(":")
+        y = s[1].split(":")
 
         # set everything else to NaN
         x0 = int(x[0]) - 1
@@ -495,7 +519,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         """Debayer an image"""
 
         # what pattern do we have?
-        if pattern == 'GBRG':
+        if pattern == "GBRG":
             # pattern is:  GB
             #              RG
             R = arr[1::2, 0::2]
@@ -503,10 +527,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             B = arr[0::2, 1::2]
 
         else:
-            raise ValueError('Unknown Bayer pattern.')
+            raise ValueError("Unknown Bayer pattern.")
 
         # return rescaled cube
         return np.array([resize(a, arr.shape, anti_aliasing=False) for a in [R, G, B]])
 
 
-__all__ = ['QFitsWidget']
+__all__ = ["QFitsWidget"]
