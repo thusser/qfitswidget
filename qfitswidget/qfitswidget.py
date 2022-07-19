@@ -46,9 +46,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # Qt canvas
         self.figure, self.ax = plt.subplots()
         self.canvas = FigureCanvas(self.figure)
-        self.tools = NavigationToolbar2QT(
-            self.canvas, self.widgetTools, coordinates=False
-        )
+        self.tools = NavigationToolbar2QT(self.canvas, self.widgetTools, coordinates=False)
         self.widgetCanvas.layout().addWidget(self.canvas)
         self.widgetTools.layout().addWidget(self.tools)
 
@@ -69,9 +67,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.comboStretch.setCurrentText("sqrt")
 
         # set colormaps
-        self.comboColormap.addItems(
-            sorted([cm for cm in plt.colormaps() if not cm.endswith("_r")])
-        )
+        self.comboColormap.addItems(sorted([cm for cm in plt.colormaps() if not cm.endswith("_r")]))
         self.comboColormap.setCurrentText("gray")
 
     def display(self, hdu) -> None:
@@ -97,36 +93,27 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # do we have a bayer matrix given?
         if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
-            print("bayer")
             # check layers
             if len(hdu.data.shape) != 2:
                 raise ValueError("Invalid data format.")
 
             # got a bayer pattern
-            pattern = self.hdu.header[
-                "BAYERPAT" if "BAYERPAT" in self.hdu.header else "COLORTYP"
-            ]
+            pattern = self.hdu.header["BAYERPAT" if "BAYERPAT" in self.hdu.header else "COLORTYP"]
 
             # debayer iamge
             self.data = self._debayer(self.hdu.data, pattern)
 
-        print(self.data.shape)
+        else:
+            self.data = self.hdu.data
 
         # 3D, i.e. color, image?
         if len(self.data.shape) == 3:
             # we need three images of uint8 format
-            print("3")
             if self.data.shape[0] != 3 and self.data.shape[2] != 3:
-                raise ValueError(
-                    "Data cubes only supported with three layers, which are interpreted as RGB."
-                )
+                raise ValueError("Data cubes only supported with three layers, which are interpreted as RGB.")
             if self.data.shape[0] == 3:
                 # move axis
                 self.data = np.moveaxis(self.data, 0, 2)
-                print(self.data.shape, "AA")
-
-        else:
-            raise ValueError("Invalid data format.")
 
         # for INT8 images, we don't need cuts
         is_int8 = self.data.dtype == np.uint8
@@ -152,11 +139,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     @pyqtSlot(int, name="on_checkTrimSec_stateChanged")
     def _trim_image(self) -> None:
         # cut trimsec
-        self.trimmed_data = (
-            self._trimsec(self.hdu, self.data)
-            if self.checkTrimSec.isChecked()
-            else self.data
-        )
+        self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
 
         # store flattened and sorted pixels
         self.sorted_data = np.sort(self.trimmed_data[self.trimmed_data > 0].flatten())
@@ -182,17 +165,23 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # get normalization
         stretch = self.comboStretch.currentText()
         if stretch == "linear":
-            norm = colors.Normalize(vmin=vmin, vmax=vmax)
+            norm = colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "log":
-            norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+            norm = colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "sqrt":
-            norm = FuncNorm(np.sqrt, vmin=vmin, vmax=vmax)
+            norm = FuncNorm(np.sqrt, vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "squared":
-            norm = colors.PowerNorm(2, vmin=vmin, vmax=vmax)
+            norm = colors.PowerNorm(2, vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "asinh":
-            norm = FuncNorm(np.arcsinh, vmin=vmin, vmax=vmax)
+            norm = FuncNorm(np.arcsinh, vmin=vmin, vmax=vmax, clip=True)
         else:
             raise ValueError("Invalid stretch")
+
+        # for RGB data, we need to normalize manually, since it's not done by imshow
+        if len(self.trimmed_data.shape) == 3:
+            self.scaled_data = [norm(self.trimmed_data[d, :, :]) for d in range(self.trimmed_data.shape[0])]
+        else:
+            self.scaled_data = self.trimmed_data
 
         # get name of colormap
         cmap = self.comboColormap.currentText()
@@ -217,13 +206,18 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # self._draw(self.ax_zoom, self.figure_zoom, self.canvas_zoom, cmap, norm)
 
     def _draw(self, ax, figure, canvas, cmap, norm):
+        # clear axis
         ax.cla()
+
+        # RGB?
         rgb = len(self.trimmed_data.shape) == 3
+
+        # plot
         with plt.style.context("dark_background"):
             ax.imshow(
-                norm(self.trimmed_data) if rgb else self.trimmed_data,
+                self.scaled_data,
                 cmap=None if rgb else cmap,
-                norm=None if rgb else norm,
+                interpolation="nearest",
             )
         ax.axis("off")
         figure.subplots_adjust(0, 0.005, 1, 1)
