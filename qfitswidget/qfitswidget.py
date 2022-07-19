@@ -1,5 +1,5 @@
 from typing import Optional
-
+import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
@@ -97,6 +97,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # do we have a bayer matrix given?
         if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
+            print("bayer")
             # check layers
             if len(hdu.data.shape) != 2:
                 raise ValueError("Invalid data format.")
@@ -109,30 +110,29 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             # debayer iamge
             self.data = self._debayer(self.hdu.data, pattern)
 
-        else:
-            # 3D, i.e. color, image?
-            if len(hdu.data.shape) == 2:
-                self.data = self.hdu.data.copy()
-            elif len(hdu.data.shape) == 3:
-                # we need three images of uint8 format
-                if hdu.data.shape[0] != 3 and hdu.data.shape[2] != 3:
-                    raise ValueError(
-                        "Data cubes only supported with three layers, which are interpreted as RGB."
-                    )
-                if hdu.data.shape[2] == 3:
-                    # move axis
-                    self.data = np.moveaxis(self.hdu.data, 2, 0)
-                else:
-                    self.data = self.hdu.data.copy()
+        print(self.data.shape)
 
-            else:
-                raise ValueError("Invalid data format.")
+        # 3D, i.e. color, image?
+        if len(self.data.shape) == 3:
+            # we need three images of uint8 format
+            print("3")
+            if self.data.shape[0] != 3 and self.data.shape[2] != 3:
+                raise ValueError(
+                    "Data cubes only supported with three layers, which are interpreted as RGB."
+                )
+            if self.data.shape[0] == 3:
+                # move axis
+                self.data = np.moveaxis(self.data, 0, 2)
+                print(self.data.shape, "AA")
+
+        else:
+            raise ValueError("Invalid data format.")
 
         # for INT8 images, we don't need cuts
         is_int8 = self.data.dtype == np.uint8
 
         # colour image?
-        is_color = len(self.data.shape) == 3 and self.data.shape[0] == 3
+        is_color = len(self.data.shape) == 3 and self.data.shape[2] == 3
 
         # enable GUI elements, only important for first image after start
         self.labelCuts.setEnabled(not is_int8)
@@ -148,7 +148,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # draw image
         self._trim_image()
-        self._draw_image()
 
     @pyqtSlot(int, name="on_checkTrimSec_stateChanged")
     def _trim_image(self) -> None:
@@ -214,21 +213,21 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
         # draw image
-        for ax in [self.ax, self.ax_zoom]:
-            ax.cla()
-            with plt.style.context("dark_background"):
-                ax.imshow(
-                    self.trimmed_data,
-                    cmap=cmap,
-                    norm=norm,
-                )
-            # ax.set_xticks([])
-            # ax.set_yticks([])
-            ax.axis("off")
-        for figure in [self.figure, self.figure_zoom]:
-            figure.subplots_adjust(0, 0.005, 1, 1)
-        for canvas in [self.canvas, self.canvas_zoom]:
-            canvas.draw()
+        self._draw(self.ax, self.figure, self.canvas, cmap, norm)
+        # self._draw(self.ax_zoom, self.figure_zoom, self.canvas_zoom, cmap, norm)
+
+    def _draw(self, ax, figure, canvas, cmap, norm):
+        ax.cla()
+        rgb = len(self.trimmed_data.shape) == 3
+        with plt.style.context("dark_background"):
+            ax.imshow(
+                norm(self.trimmed_data) if rgb else self.trimmed_data,
+                cmap=None if rgb else cmap,
+                norm=None if rgb else norm,
+            )
+        ax.axis("off")
+        figure.subplots_adjust(0, 0.005, 1, 1)
+        canvas.draw()
 
     def _evaluate_cuts_preset(self):
         """When the cuts preset has changed, calculate the new cuts"""
@@ -385,17 +384,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # what pattern do we have?
         if pattern == "GBRG":
-            # pattern is:  GB
-            #              RG
-            R = arr[1::2, 0::2]
-            G = arr[0::2, 0::2] // 2 + arr[1::2, 1::2] // 2
-            B = arr[0::2, 1::2]
+            return cv2.cvtColor(arr, cv2.COLOR_BayerGB2BGR)
 
         else:
             raise ValueError("Unknown Bayer pattern.")
-
-        # return rescaled cube
-        return np.array([resize(a, arr.shape, anti_aliasing=False) for a in [R, G, B]])
 
 
 __all__ = ["QFitsWidget"]
