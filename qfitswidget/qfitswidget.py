@@ -3,6 +3,7 @@ import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -214,11 +215,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # plot
         with plt.style.context("dark_background"):
-            ax.imshow(
-                self.scaled_data,
-                cmap=None if rgb else cmap,
-                interpolation="nearest",
-            )
+            ax.imshow(self.scaled_data, cmap=None if rgb else cmap, interpolation="nearest", origin="lower")
         ax.axis("off")
         figure.subplots_adjust(0, 0.005, 1, 1)
         canvas.draw()
@@ -283,16 +280,13 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         if event.canvas != self.canvas or x is None or y is None:
             return
 
-        # calculate flipped y
-        flipped_y = self.trimmed_data.shape[-2] - y
-
         # show X/Y
         self.textImageX.setText("%.3f" % x)
-        self.textImageY.setText("%.3f" % flipped_y)
+        self.textImageY.setText("%.3f" % y)
 
         # convert to RA/Dec and show it
         try:
-            coord = pixel_to_skycoord(x, flipped_y, self.wcs)
+            coord = pixel_to_skycoord(x, y, self.wcs)
             self.textWorldRA.setText(coord.ra.to_string(u.hour, sep=":"))
             self.textWorldDec.setText(coord.dec.to_string(sep=":"))
         except ValueError:
@@ -301,7 +295,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # get value
         try:
-            iy, ix = self.hdu.data.shape[-2] - int(y), int(x)
+            iy, ix = int(y), int(x)
             value = self.hdu.data[iy, ix]
         except IndexError:
             value = ""
@@ -328,9 +322,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             pass
 
         # limit zoom
-        self.ax_zoom.set_xlim((x - 10, x + 10))
-        self.ax_zoom.set_ylim((y + 10, y - 10))
-        self.canvas_zoom.draw()
+        # self.ax_zoom.set_xlim((x - 10, x + 10))
+        # self.ax_zoom.set_ylim((y + 10, y - 10))
+        # self.canvas_zoom.draw()
 
     def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
