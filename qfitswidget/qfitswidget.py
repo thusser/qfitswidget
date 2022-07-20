@@ -22,7 +22,7 @@ plt.style.use("dark_background")
 
 
 class ProcessMouseHoverSignals(QtCore.QObject):
-    finished = pyqtSignal(str, str, str, str)
+    finished = pyqtSignal(str, str, str, str, np.ndarray)
 
 
 class ProcessMouseHover(QRunnable):
@@ -59,12 +59,10 @@ class ProcessMouseHover(QRunnable):
             mean, maxi = "", ""
 
         # zoom
-        # cut_normed = self._normalize_data(cut)
-        # print(cut_normed)
-        # self._draw(cut_normed, self.ax_zoom, self.figure_zoom, self.canvas_zoom)
+        cut_normed = self.fits_widget.normalize_data(cut)
 
         # emit
-        self.signals.finished.emit(ra, dec, mean, maxi)
+        self.signals.finished.emit(ra, dec, mean, maxi, cut_normed)
 
         # no idea why, but it's a good idea to sleep a little before we finish
         time.sleep(0.01)
@@ -393,8 +391,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         t.signals.finished.connect(self._update_mouse_over)
         self.thread.tryStart(t)
 
-    @pyqtSlot(str, str, str, str)
-    def _update_mouse_over(self, ra, dec, mean, maxi):
+    @pyqtSlot(str, str, str, str, np.ndarray)
+    def _update_mouse_over(self, ra, dec, mean, maxi, cut_normed):
         self.textWorldRA.setText(ra)
         self.textWorldDec.setText(dec)
 
@@ -402,9 +400,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.textAreaMax.setText(maxi)
 
         # limit zoom
-        # self.ax_zoom.set_xlim((x - 10, x + 10))
-        # self.ax_zoom.set_ylim((y + 10, y - 10))
-        # self.canvas_zoom.draw()
+        self._draw(cut_normed, self.ax_zoom, self.figure_zoom, self.canvas_zoom)
 
     def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
