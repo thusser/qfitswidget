@@ -60,6 +60,8 @@ class ProcessMouseHover(QRunnable):
 
         # calculate and show
         try:
+            if any([d == 0 for d in cut.shape]):
+                raise ValueError
             mean = f"{np.mean(cut):.2f}"
             maxi = f"{np.max(cut):.2f}"
         except ValueError:
@@ -103,6 +105,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # Qt canvas
         self.figure, self.ax = plt.subplots()
+        self.ax.axis("off")
         self.canvas = FigureCanvas(self.figure)
         self.tools = NavigationToolbar2QT(self.canvas, self.widgetTools, coordinates=False)
         self.widgetCanvas.layout().addWidget(self.canvas)
@@ -113,6 +116,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # and for zoom
         self.figure_zoom, self.ax_zoom = plt.subplots()
+        self.ax_zoom.axis("off")
         self.canvas_zoom = FigureCanvas(self.figure_zoom)
         self.widgetZoom.layout().addWidget(self.canvas_zoom)
 
@@ -268,6 +272,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._draw(self.scaled_data, self.ax, self.figure, self.canvas)
         self._draw_center()
         self._draw_directions()
+        self.canvas.draw()
 
     def _draw_center(self) -> None:
         x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
@@ -314,6 +319,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # RGB?
         rgb = len(data.shape) == 3
+
+        # any empty axis?
+        if any([d == 0 for d in data.shape]):
+            canvas.draw()
+            return
 
         # plot
         with plt.style.context("dark_background"):
