@@ -5,6 +5,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -127,13 +128,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.comboColormap.addItems(sorted([cm for cm in plt.colormaps() if not cm.endswith("_r")]))
         self.comboColormap.setCurrentText("gray")
 
-        # mouse over update thread
-        # self._mouse_over_thread = threading
+        # mouse over update thread pool
+        self.mouse_over_thread_pool = QtCore.QThreadPool()
+        self.mouse_over_thread_pool.setMaxThreadCount(1)
 
-        self.thread = QtCore.QThreadPool()
-        self.thread.setMaxThreadCount(1)
-
-    def display(self, hdu) -> None:
+    def display(self, hdu: fits.PrimaryHDU) -> None:
         """Display image from given HDU.
 
         Args:
@@ -143,6 +142,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # store HDU and create WCS
         self.hdu = hdu
         self.wcs = WCS(hdu.header)
+
+        # check
+        if self.hdu is None or self.wcs is None:
+            return
 
         # get position angle and check whether image was mirrored
         if "PC1_1" in self.hdu.header:
@@ -157,7 +160,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # do we have a bayer matrix given?
         if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
             # check layers
-            if len(hdu.data.shape) != 2:
+            if len(self.hdu.data.shape) != 2:
                 raise ValueError("Invalid data format.")
 
             # got a bayer pattern
@@ -430,7 +433,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # start in thread
         t = ProcessMouseHover(self)
         t.signals.finished.connect(self._update_mouse_over)
-        self.thread.tryStart(t)
+        self.mouse_over_thread_pool.tryStart(t)
 
     @pyqtSlot(str, str, str, str, np.ndarray)
     def _update_mouse_over(self, ra, dec, mean, maxi, cut_normed):
