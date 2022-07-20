@@ -1,28 +1,23 @@
+from __future__ import annotations
 import time
 from typing import Optional
 import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
-from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.wcs.utils import pixel_to_skycoord
-from matplotlib import colors, transforms
-from matplotlib import patches
+from matplotlib import colors
 from matplotlib.cm import ScalarMappable
-from matplotlib.collections import PatchCollection
 from matplotlib.lines import Line2D
-from matplotlib.offsetbox import AnchoredOffsetbox, AuxTransformBox
-from matplotlib.patches import ArrowStyle, FancyArrowPatch, Arrow, FancyArrow
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredDirectionArrows
-from skimage.transform import resize
-from matplotlib.backends.backend_qt5 import NavigationToolbar2QT
+from matplotlib.patches import FancyArrow
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from .fitswidget import Ui_FitsWidget
+from .navigationtoolbar import NavigationToolbar
 from .norm import *
 
 plt.style.use("dark_background")
@@ -33,7 +28,7 @@ class ProcessMouseHoverSignals(QtCore.QObject):
 
 
 class ProcessMouseHover(QRunnable):
-    def __init__(self, fits_widget):
+    def __init__(self, fits_widget: QFitsWidget):
         QRunnable.__init__(self)
         self.signals = ProcessMouseHoverSignals()
         self.fits_widget = fits_widget
@@ -42,7 +37,7 @@ class ProcessMouseHover(QRunnable):
         self.wcs = fits_widget.wcs
         self.data = fits_widget.data
 
-    def run(self):
+    def run(self) -> None:
         # convert to RA/Dec and show it
         try:
             coord = pixel_to_skycoord(self.x, self.y, self.wcs)
@@ -99,7 +94,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.wcs = None
         self.position_angle = None
         self.mirrored = None
-        self.mouse_pos = None
+        self.mouse_pos = (0, 0)
         self.cmap = None
         self.norm = None
 
@@ -107,7 +102,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.figure, self.ax = plt.subplots()
         self.ax.axis("off")
         self.canvas = FigureCanvas(self.figure)
-        self.tools = NavigationToolbar2QT(self.canvas, self.widgetTools, coordinates=False)
+        self.tools = NavigationToolbar(self.canvas, self.widgetTools, coordinates=False)
         self.widgetCanvas.layout().addWidget(self.canvas)
         self.widgetTools.layout().addWidget(self.tools)
 
