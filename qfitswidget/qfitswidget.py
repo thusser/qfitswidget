@@ -268,8 +268,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     def _draw_center(self) -> None:
         x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
-        c = patches.Circle((x, y), 50, color="r", fill=False, transform=self.ax.transData)
-        self.ax.add_artist(c)
+        l = Line2D([x + 10, x + 30], [y, y], color="r", transform=self.ax.transData)
+        self.ax.add_artist(l)
+        l = Line2D([x, x], [y + 10, y + 30], color="r", transform=self.ax.transData)
+        self.ax.add_artist(l)
 
     def _draw_directions(self) -> None:
         length = 20
