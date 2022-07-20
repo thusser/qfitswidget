@@ -9,8 +9,14 @@ from astropy.wcs import WCS
 import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.wcs.utils import pixel_to_skycoord
-from matplotlib import colors
+from matplotlib import colors, transforms
+from matplotlib import patches
 from matplotlib.cm import ScalarMappable
+from matplotlib.collections import PatchCollection
+from matplotlib.lines import Line2D
+from matplotlib.offsetbox import AnchoredOffsetbox, AuxTransformBox
+from matplotlib.patches import ArrowStyle, FancyArrowPatch, Arrow, FancyArrow
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredDirectionArrows
 from skimage.transform import resize
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -145,7 +151,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.position_angle = np.degrees(np.arctan2(CD12, CD11))
             self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
         else:
-            self.position_angle = None
+            self.position_angle = 0
             self.mirrored = None
 
         # do we have a bayer matrix given?
@@ -257,6 +263,39 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # draw image
         self._draw(self.scaled_data, self.ax, self.figure, self.canvas)
+        self._draw_center()
+        self._draw_directions()
+
+    def _draw_center(self) -> None:
+        x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
+        c = patches.Circle((x, y), 50, color="r", fill=False, transform=self.ax.transData)
+        self.ax.add_artist(c)
+
+    def _draw_directions(self) -> None:
+        length = 20
+        text = 35
+        x, y = 50, 50
+        tw = 10
+        angle_n = np.radians(self.position_angle)
+
+        # N line
+        w, h = length * np.sin(angle_n), length * np.cos(angle_n)
+        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color="w")
+        self.figure.add_artist(l)
+
+        # draw N text
+        w, h = -text * np.sin(angle_n), -text * np.cos(angle_n)
+        self.figure.text(x + w - tw / 2, y - h - tw / 2, "N", transform=None, c="w")
+
+        # E line
+        angle_e = angle_n - (np.pi / 2 if self.mirrored else -np.pi / 2)
+        w, h = -length * np.sin(angle_e), -length * np.cos(angle_e)
+        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color="w")
+        self.figure.add_artist(l)
+
+        # draw E text
+        w, h = -text * np.sin(angle_e), -text * np.cos(angle_e)
+        self.figure.text(x + w - tw / 2, y - h - tw / 2, "E", transform=None, c="w")
 
     def normalize_data(self, data):
         # for RGB data, we need to normalize manually, since it's not done by imshow
