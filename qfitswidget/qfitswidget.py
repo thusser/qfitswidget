@@ -287,7 +287,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # draw N text
         w, h = -text * np.sin(angle_n), -text * np.cos(angle_n)
-        self.figure.text(x + w - tw / 2, y - h - tw / 2, "N", transform=None, c="w")
+        self.figure.text(x - w - tw / 2 * np.sign(w), y - h - tw / 2 * np.sign(h), "N", transform=None, c="w")
 
         # E line
         angle_e = angle_n - (np.pi / 2 if self.mirrored else -np.pi / 2)
@@ -297,7 +297,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # draw E text
         w, h = -text * np.sin(angle_e), -text * np.cos(angle_e)
-        self.figure.text(x + w - tw / 2, y - h - tw / 2, "E", transform=None, c="w")
+        self.figure.text(x + w + tw / 2 * np.sign(w), y + h + tw / 2 * np.sign(h), "E", transform=None, c="w")
 
     def normalize_data(self, data):
         # for RGB data, we need to normalize manually, since it's not done by imshow
