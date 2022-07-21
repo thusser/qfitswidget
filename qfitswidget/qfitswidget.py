@@ -1,5 +1,6 @@
 from __future__ import annotations
 import time
+from enum import Enum
 from typing import Optional
 import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -13,7 +14,7 @@ from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 from matplotlib.lines import Line2D
-from matplotlib.patches import FancyArrow
+from matplotlib.patches import FancyArrow, Circle
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 from qfitswidget.qt.fitswidget import Ui_FitsWidget
@@ -21,6 +22,12 @@ from qfitswidget.navigationtoolbar import NavigationToolbar
 from qfitswidget.norm import FuncNorm
 
 plt.style.use("dark_background")
+
+
+class CenterMarkStyle(Enum):
+    FULL_CROSS = "Cross"
+    HALF_CROSS = "Half cross"
+    CIRCLE = "Circle"
 
 
 class ProcessMouseHoverSignals(QtCore.QObject):
@@ -101,6 +108,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # options
         self._center_mark_visible = True
         self._center_mark_color = "red"
+        self._center_mark_style = CenterMarkStyle.HALF_CROSS
+        self._center_mark_size = 30
         self._directions_visible = True
         self._directions_color = "white"
 
@@ -278,11 +287,36 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.canvas.draw()
 
     def _draw_center(self) -> None:
+        # get center position
         x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
-        l = Line2D([x + 10, x + 30], [y, y], color=self._center_mark_color, transform=self.ax.transData)
-        self.ax.add_artist(l)
-        l = Line2D([x, x], [y + 10, y + 30], color=self._center_mark_color, transform=self.ax.transData)
-        self.ax.add_artist(l)
+
+        # size
+        ms = self._center_mark_size
+        ms2 = ms * 2
+
+        # (half) cross?
+        if self._center_mark_style in [CenterMarkStyle.HALF_CROSS, CenterMarkStyle.FULL_CROSS]:
+            # first two lines for half cross
+            self.ax.add_artist(
+                Line2D([x + ms, x + ms2], [y, y], color=self._center_mark_color, transform=self.ax.transData)
+            )
+            self.ax.add_artist(
+                Line2D([x, x], [y + ms, y + ms2], color=self._center_mark_color, transform=self.ax.transData)
+            )
+
+            # full cross?
+            if self._center_mark_style == CenterMarkStyle.FULL_CROSS:
+                self.ax.add_artist(
+                    Line2D([x - ms, x - ms2], [y, y], color=self._center_mark_color, transform=self.ax.transData)
+                )
+                self.ax.add_artist(
+                    Line2D([x, x], [y - ms, y - ms2], color=self._center_mark_color, transform=self.ax.transData)
+                )
+
+        elif self._center_mark_style == CenterMarkStyle.CIRCLE:
+            self.ax.add_artist(
+                Circle((x, y), ms, fill=False, color=self._center_mark_color, transform=self.ax.transData)
+            )
 
     def _draw_directions(self) -> None:
         length = 20
@@ -525,6 +559,24 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     @center_mark_color.setter
     def center_mark_color(self, color: str) -> None:
         self._center_mark_color = color
+        self._draw_image()
+
+    @property
+    def center_mark_style(self) -> CenterMarkStyle:
+        return self._center_mark_style
+
+    @center_mark_style.setter
+    def center_mark_style(self, style: CenterMarkStyle) -> None:
+        self._center_mark_style = style
+        self._draw_image()
+
+    @property
+    def center_mark_size(self) -> int:
+        return self._center_mark_size
+
+    @center_mark_size.setter
+    def center_mark_size(self, size: int) -> None:
+        self._center_mark_size = size
         self._draw_image()
 
     @property
