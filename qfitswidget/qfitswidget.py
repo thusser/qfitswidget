@@ -31,7 +31,7 @@ class CenterMarkStyle(Enum):
 
 
 class ProcessMouseHoverSignals(QtCore.QObject):
-    finished = pyqtSignal(str, str, str, str, np.ndarray)
+    finished = pyqtSignal(float, float, str, str, float, float, float, np.ndarray)
 
 
 class ProcessMouseHover(QRunnable):
@@ -48,13 +48,14 @@ class ProcessMouseHover(QRunnable):
         # convert to RA/Dec and show it
         try:
             coord = pixel_to_skycoord(self.x, self.y, self.wcs)
-            ra = coord.ra.to_string(u.hour, sep=":")
-            dec = coord.dec.to_string(sep=":")
+            ra = coord.ra.to_string(u.hour, precision=1)
+            dec = coord.dec.to_string(precision=1)
         except ValueError:
             ra, dec = "", ""
 
-        # mean/max
+        # value and mean/max
         iy, ix = int(self.y), int(self.x)
+        value = self.data[iy, ix]
         if len(self.data.shape) == 2:
             cut = self.data[iy - 10 : iy + 11, ix - 10 : ix + 11]
         else:
@@ -64,16 +65,16 @@ class ProcessMouseHover(QRunnable):
         try:
             if any([d == 0 for d in cut.shape]):
                 raise ValueError
-            mean = f"{np.mean(cut):.2f}"
-            maxi = f"{np.max(cut):.2f}"
+            mean = np.mean(cut)
+            maxi = np.max(cut)
         except ValueError:
-            mean, maxi = "", ""
+            mean, maxi = 0, 0
 
         # zoom
         cut_normed = self.fits_widget.normalize_data(cut)
 
         # emit
-        self.signals.finished.emit(ra, dec, mean, maxi, cut_normed)
+        self.signals.finished.emit(self.x, self.y, ra, dec, value, mean, maxi, cut_normed)
 
         # no idea why, but it's a good idea to sleep a little before we finish
         time.sleep(0.01)
@@ -105,6 +106,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.cmap = None
         self.norm = None
         self._image_plot = None
+        self._image_text = None
 
         # options
         self._show_overlay = True
@@ -457,13 +459,28 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         t.signals.finished.connect(self._update_mouse_over)
         self.mouse_over_thread_pool.tryStart(t)
 
-    @pyqtSlot(str, str, str, str, np.ndarray)
-    def _update_mouse_over(self, ra: str, dec: str, mean: str, maxi: str, cut_normed: np.ndarray) -> None:
+    @pyqtSlot(float, float, str, str, float, float, float, np.ndarray)
+    def _update_mouse_over(
+        self, x: float, y: float, ra: str, dec: str, value: float, mean: float, maxi: float, cut_normed: np.ndarray
+    ) -> None:
         self.textWorldRA.setText(ra)
         self.textWorldDec.setText(dec)
 
-        self.textAreaMean.setText(mean)
-        self.textAreaMax.setText(maxi)
+        self.textAreaMean.setText(str(mean))
+        self.textAreaMax.setText(str(maxi))
+
+        if self._image_text is None:
+            self._image_text = self.figure.text(0.01, 0.98, "", fontsize=10, c="w", va="top")
+
+        self._image_text.set_text(
+            f"""\
+X/Y: {x:.1f} / {y:.1f}
+RA/Dec: {ra} / {dec} 
+Pixel value: {value:.1f}
+Area mean/max: {mean:.1f} / {maxi:.1f}
+        """
+        )
+        self.canvas.draw()
 
         # clear axis
         self.ax_zoom.cla()
