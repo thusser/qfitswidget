@@ -61,7 +61,7 @@ class Settings(QtWidgets.QDialog, Ui_DialogSettings):
 
     def _directions_set_color(self) -> None:
         color = QtWidgets.QColorDialog.getColor(QtGui.QColor(self.fits_widget.directions_color), self)
-        self.labelCenterColor.setStyleSheet(f"background-color: {color.name()}")
+        self.labelDirectionsColor.setStyleSheet(f"background-color: {color.name()}")
         self.fits_widget.directions_color = color.name()
 
 
