@@ -32,7 +32,6 @@ class NavigationToolbar(NavigationToolbar2QT):
 
     def __init__(self, fits_widget: QFitsWidget, *args: Any, **kwargs: Any):
         NavigationToolbar2QT.__init__(self, *args, **kwargs)
-        print(self.toolitems)
         self.fits_widget = fits_widget
         self.settings = Settings(fits_widget)
         self.show_overlay = True
