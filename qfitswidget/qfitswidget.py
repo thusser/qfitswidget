@@ -104,6 +104,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.mouse_pos = (0, 0)
         self.cmap = None
         self.norm = None
+        self._image_plot = None
 
         # options
         self._show_overlay = True
@@ -279,8 +280,30 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # set colorbar
         self.labelColorbar.setPixmap(QtGui.QPixmap(colorbar))
 
-        # draw image
-        self._draw(self.scaled_data, self.ax, self.figure, self.canvas)
+        # clear axis
+        self.ax.cla()
+        while len(self.ax.artists) > 0:
+            self.ax.artists[0].remove()
+        while len(self.figure.artists) > 0:
+            self.figure.artists[0].remove()
+        while len(self.figure.texts) > 0:
+            self.figure.texts[0].remove()
+
+        # RGB?
+        rgb = len(self.trimmed_data.shape) == 3
+
+        # no empty axis?
+        if not any([d == 0 for d in self.trimmed_data.shape]):
+            # plot
+            with plt.style.context("dark_background"):
+                self._image_plot = self.ax.imshow(
+                    self.trimmed_data, cmap=None if rgb else self.cmap, interpolation="nearest", origin="lower"
+                )
+            self.ax.axis("off")
+            self.figure.subplots_adjust(0, 0.005, 1, 1)
+
+        # draw
+        self.canvas.draw()
 
         # overlay
         if self._show_overlay:
@@ -354,64 +377,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         else:
             return self.norm(data)
 
-    def _draw(self, data, ax, figure, canvas):
-        # clear axis
-        ax.cla()
-        while len(ax.artists) > 0:
-            ax.artists[0].remove()
-        while len(figure.artists) > 0:
-            figure.artists[0].remove()
-        while len(figure.texts) > 0:
-            figure.texts[0].remove()
-
-        # RGB?
-        rgb = len(data.shape) == 3
-
-        # any empty axis?
-        if any([d == 0 for d in data.shape]):
-            canvas.draw()
-            return
-
-        # plot
-        with plt.style.context("dark_background"):
-            ax.imshow(data, cmap=None if rgb else self.cmap, interpolation="nearest", origin="lower")
-        ax.axis("off")
-        figure.subplots_adjust(0, 0.005, 1, 1)
-        canvas.draw()
-
-    def _create_qimage(self):
-        """Create a QImage from the data.
-        Returns:
-            Processed image.
-        """
-
-        # get shape of image
-        height, width = self.data.shape[-2:]
-
-        # format
-        if len(self.scaled_data.shape) == 2:
-            # plain and simple B/W
-            format = QtGui.QImage.Format_Indexed8
-            bytes_per_line = self.data.shape[1]
-
-        else:
-            # 3D, i.e. cube, with colour information
-            format = QtGui.QImage.Format_RGB888
-            bytes_per_line = self.data.shape[2] * 3
-
-        # for cubes, move axis
-        # this is necessary, because in FITS we store three different images, i.e. sth like RRRRRGGGGGBBBBB,
-        # but we need RGBRGBRGBRGBRGB
-        data = np.moveaxis(self.scaled_data, 0, 2) if len(self.scaled_data.shape) == 3 else self.scaled_data
-
-        # create QImage
-        image = QtGui.QImage(data.tobytes(), width, height, bytes_per_line, format)
-
-        # flip and return it
-        flipped = image.transformed(QtGui.QTransform().scale(1, -1))
-        return flipped
-
-    def _evaluate_cuts_preset(self):
+    def _evaluate_cuts_preset(self) -> None:
         """When the cuts preset has changed, calculate the new cuts"""
 
         # get preset
@@ -492,15 +458,39 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.mouse_over_thread_pool.tryStart(t)
 
     @pyqtSlot(str, str, str, str, np.ndarray)
-    def _update_mouse_over(self, ra, dec, mean, maxi, cut_normed):
+    def _update_mouse_over(self, ra: str, dec: str, mean: str, maxi: str, cut_normed: np.ndarray) -> None:
         self.textWorldRA.setText(ra)
         self.textWorldDec.setText(dec)
 
         self.textAreaMean.setText(mean)
         self.textAreaMax.setText(maxi)
 
-        # limit zoom
-        self._draw(cut_normed, self.ax_zoom, self.figure_zoom, self.canvas_zoom)
+        # clear axis
+        self.ax_zoom.cla()
+
+        # RGB?
+        rgb = len(cut_normed.shape) == 3
+
+        # no empty axis?
+        if not any([d == 0 for d in cut_normed.shape]):
+            # clim?
+            vmin, vmax = self._image_plot.get_clim() if self._image_plot is not None else (0, 255)
+
+            # plot
+            with plt.style.context("dark_background"):
+                self.ax_zoom.imshow(
+                    cut_normed,
+                    cmap=None if rgb else self.cmap,
+                    interpolation="nearest",
+                    origin="lower",
+                    vmin=vmin / 255.0,
+                    vmax=vmax / 255.0,
+                )
+            self.ax_zoom.axis("off")
+            self.figure_zoom.subplots_adjust(0, 0.005, 1, 1)
+
+        # draw
+        self.canvas_zoom.draw()
 
     def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
