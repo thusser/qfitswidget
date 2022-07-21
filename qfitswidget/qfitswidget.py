@@ -16,9 +16,9 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-from .fitswidget import Ui_FitsWidget
-from .navigationtoolbar import NavigationToolbar
-from .norm import *
+from qfitswidget.qt.fitswidget import Ui_FitsWidget
+from qfitswidget.navigationtoolbar import NavigationToolbar
+from qfitswidget.norm import FuncNorm
 
 plt.style.use("dark_background")
 
