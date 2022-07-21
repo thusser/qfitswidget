@@ -106,6 +106,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.norm = None
 
         # options
+        self._show_overlay = True
         self._center_mark_visible = True
         self._center_mark_color = "red"
         self._center_mark_style = CenterMarkStyle.HALF_CROSS
@@ -280,11 +281,14 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # draw image
         self._draw(self.scaled_data, self.ax, self.figure, self.canvas)
-        if self._center_mark_visible:
-            self._draw_center()
-        if self._directions_visible:
-            self._draw_directions()
-        self.canvas.draw()
+
+        # overlay
+        if self._show_overlay:
+            if self._center_mark_visible:
+                self._draw_center()
+            if self._directions_visible:
+                self._draw_directions()
+            self.canvas.draw()
 
     def _draw_center(self) -> None:
         # get center position
@@ -353,6 +357,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def _draw(self, data, ax, figure, canvas):
         # clear axis
         ax.cla()
+        while len(ax.artists) > 0:
+            ax.artists[0].remove()
+        while len(figure.artists) > 0:
+            figure.artists[0].remove()
+        while len(figure.texts) > 0:
+            figure.texts[0].remove()
 
         # RGB?
         rgb = len(data.shape) == 3
@@ -542,6 +552,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         else:
             raise ValueError("Unknown Bayer pattern.")
+
+    @property
+    def show_overlay(self) -> bool:
+        return self._show_overlay
+
+    @show_overlay.setter
+    def show_overlay(self, show: bool) -> None:
+        self._show_overlay = show
+        self._draw_image()
 
     @property
     def center_mark_visible(self) -> bool:
