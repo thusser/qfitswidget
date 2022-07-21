@@ -1,6 +1,0 @@
-<RCC>
-  <qresource prefix="/">
-    <file>resources/crosshairs-solid.svg</file>
-    <file>resources/calculator-solid.svg</file>
-  </qresource>
-</RCC>

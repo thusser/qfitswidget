@@ -98,11 +98,17 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.cmap = None
         self.norm = None
 
+        # options
+        self._center_mark_visible = True
+        self._center_mark_color = "red"
+        self._directions_visible = True
+        self._directions_color = "white"
+
         # Qt canvas
         self.figure, self.ax = plt.subplots()
         self.ax.axis("off")
         self.canvas = FigureCanvas(self.figure)
-        self.tools = NavigationToolbar(self.canvas, self.widgetTools, coordinates=False)
+        self.tools = NavigationToolbar(self, self.canvas, self.widgetTools, coordinates=False)
         self.widgetCanvas.layout().addWidget(self.canvas)
         self.widgetTools.layout().addWidget(self.tools)
 
@@ -265,15 +271,17 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # draw image
         self._draw(self.scaled_data, self.ax, self.figure, self.canvas)
-        self._draw_center()
-        self._draw_directions()
+        if self._center_mark_visible:
+            self._draw_center()
+        if self._directions_visible:
+            self._draw_directions()
         self.canvas.draw()
 
     def _draw_center(self) -> None:
         x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
-        l = Line2D([x + 10, x + 30], [y, y], color="r", transform=self.ax.transData)
+        l = Line2D([x + 10, x + 30], [y, y], color=self._center_mark_color, transform=self.ax.transData)
         self.ax.add_artist(l)
-        l = Line2D([x, x], [y + 10, y + 30], color="r", transform=self.ax.transData)
+        l = Line2D([x, x], [y + 10, y + 30], color=self._center_mark_color, transform=self.ax.transData)
         self.ax.add_artist(l)
 
     def _draw_directions(self) -> None:
@@ -284,22 +292,22 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # N line
         w, h = length * np.sin(angle_n), length * np.cos(angle_n)
-        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color="w")
+        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color=self._directions_color)
         self.figure.add_artist(l)
 
         # draw N text
         w, h = -text * np.sin(angle_n), -text * np.cos(angle_n)
-        self.figure.text(x - w, y - h, "N", ha="center", va="center", transform=None, c="w")
+        self.figure.text(x - w, y - h, "N", ha="center", va="center", transform=None, c=self._directions_color)
 
         # E line
         angle_e = angle_n - (np.pi / 2 if self.mirrored else -np.pi / 2)
         w, h = -length * np.sin(angle_e), -length * np.cos(angle_e)
-        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color="w")
+        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color=self._directions_color)
         self.figure.add_artist(l)
 
         # draw E text
         w, h = -text * np.sin(angle_e), -text * np.cos(angle_e)
-        self.figure.text(x + w, y + h, "E", ha="center", va="center", transform=None, c="w")
+        self.figure.text(x + w, y + h, "E", ha="center", va="center", transform=None, c=self._directions_color)
 
     def normalize_data(self, data):
         # for RGB data, we need to normalize manually, since it's not done by imshow
@@ -500,6 +508,42 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         else:
             raise ValueError("Unknown Bayer pattern.")
+
+    @property
+    def center_mark_visible(self) -> bool:
+        return self._center_mark_visible
+
+    @center_mark_visible.setter
+    def center_mark_visible(self, visible: bool) -> None:
+        self._center_mark_visible = visible
+        self._draw_image()
+
+    @property
+    def center_mark_color(self) -> str:
+        return self._center_mark_color
+
+    @center_mark_color.setter
+    def center_mark_color(self, color: str) -> None:
+        self._center_mark_color = color
+        self._draw_image()
+
+    @property
+    def directions_visible(self) -> bool:
+        return self._directions_visible
+
+    @directions_visible.setter
+    def directions_visible(self, visible: bool) -> None:
+        self._directions_visible = visible
+        self._draw_image()
+
+    @property
+    def directions_color(self) -> str:
+        return self._directions_color
+
+    @directions_color.setter
+    def directions_color(self, color: str) -> None:
+        self._directions_color = color
+        self._draw_image()
 
 
 __all__ = ["QFitsWidget"]
