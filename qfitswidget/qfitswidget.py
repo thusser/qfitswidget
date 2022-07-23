@@ -454,18 +454,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # store position
         self.mouse_pos = (x, y)
 
-        # show X/Y
-        self.textImageX.setText("%.3f" % x)
-        self.textImageY.setText("%.3f" % y)
-
-        # get value
-        try:
-            iy, ix = int(y), int(x)
-            value = self.hdu.data[iy, ix]
-        except IndexError:
-            value = ""
-        self.textPixelValue.setText(str(value))
-
         # start in thread
         t = ProcessMouseHover(self)
         t.signals.finished.connect(self._update_mouse_over)
@@ -475,12 +463,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def _update_mouse_over(
         self, x: float, y: float, ra: str, dec: str, value: float, mean: float, maxi: float, cut_normed: np.ndarray
     ) -> None:
-        self.textWorldRA.setText(ra)
-        self.textWorldDec.setText(dec)
-
-        self.textAreaMean.setText(str(mean))
-        self.textAreaMax.setText(str(maxi))
-
         # if cached image exists, show it
         if self._image_cache is not None:
             self.canvas.restore_region(self._image_cache)
