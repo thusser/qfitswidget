@@ -16,6 +16,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow, Circle
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from qfitswidget.qt.fitswidget import Ui_FitsWidget
 from qfitswidget.navigationtoolbar import NavigationToolbar
@@ -119,9 +120,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._directions_color = "white"
 
         # Qt canvas
-        self.figure, self.ax = plt.subplots()
-        self.ax.axis("off")
+        self.figure, self.ax_bg = plt.subplots()
+        self.ax_bg.axis("off")
         self.canvas = FigureCanvas(self.figure)
+        self.ax = self.figure.add_axes((0, 0, 1, 1))
         self.tools = NavigationToolbar(self, self.canvas, self.widgetTools, coordinates=False)
         self.widgetCanvas.layout().addWidget(self.canvas)
         self.widgetTools.layout().addWidget(self.tools)
@@ -131,10 +133,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.canvas.mpl_connect("draw_event", self._draw_handler)
 
         # and for zoom
-        self.figure_zoom, self.ax_zoom = plt.subplots()
-        self.ax_zoom.axis("off")
-        self.canvas_zoom = FigureCanvas(self.figure_zoom)
-        self.widgetZoom.layout().addWidget(self.canvas_zoom)
+        # self.figure_zoom, self.ax_zoom = plt.subplots()
+        px = 1 / plt.rcParams["figure.dpi"]  # pixel in inches
+        self.ax_zoom = inset_axes(self.ax_bg, width=100 * px, height=100 * px, loc="upper right")
+        self.ax_zoom.set_xticks([])
+        self.ax_zoom.set_yticks([])
+        # self.ax_zoom.axis("off")
 
         # set cuts
         self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
@@ -492,13 +496,13 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 """
             )
 
-            # draw text and flush it
+            # draw text
             self.ax.draw_artist(self._image_text)
-            self.canvas.blit(self.figure.bbox)
-            self.canvas.flush_events()
 
         # clear axis
         self.ax_zoom.cla()
+        self.ax_zoom.set_xticks([])
+        self.ax_zoom.set_yticks([])
 
         # RGB?
         rgb = len(cut_normed.shape) == 3
@@ -510,7 +514,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
             # plot
             with plt.style.context("dark_background"):
-                self.ax_zoom.imshow(
+                zoom = self.ax_zoom.imshow(
                     cut_normed,
                     cmap=None if rgb else self.cmap,
                     interpolation="nearest",
@@ -518,11 +522,14 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                     vmin=vmin / 255.0,
                     vmax=vmax / 255.0,
                 )
-            self.ax_zoom.axis("off")
-            self.figure_zoom.subplots_adjust(0, 0.005, 1, 1)
+                self.ax_zoom.draw_artist(zoom)
+
+        # draw it
+        self.canvas.blit(self.figure.bbox)
+        self.canvas.flush_events()
 
         # draw
-        self.canvas_zoom.draw()
+        # self.canvas_zoom.draw()
 
     def _trimsec(self, hdu, data=None) -> np.ndarray:
         """Trim an image to TRIMSEC.
