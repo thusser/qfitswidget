@@ -107,6 +107,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.norm = None
         self._image_plot = None
         self._image_text = None
+        self._image_cache = None
 
         # options
         self._show_overlay = True
@@ -126,7 +127,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.widgetTools.layout().addWidget(self.tools)
 
         # mouse
-        plt.connect("motion_notify_event", self._mouse_moved)
+        self.canvas.mpl_connect("motion_notify_event", self._mouse_moved)
+        self.canvas.mpl_connect("draw_event", self._draw_handler)
 
         # and for zoom
         self.figure_zoom, self.ax_zoom = plt.subplots()
@@ -219,6 +221,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # draw image
         self._trim_image()
+
+    def _draw_handler(self, draw_event):
+        self._image_cache = self.canvas.copy_from_bbox(self.figure.bbox)
 
     @pyqtSlot(int, name="on_checkTrimSec_stateChanged")
     def _trim_image(self) -> None:
@@ -313,7 +318,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 self._draw_center()
             if self._directions_visible:
                 self._draw_directions()
-            self.canvas.draw()
+            self._image_text = self.figure.text(0.01, 0.98, "", fontsize=10, c="w", va="top", animated=True)
+
+        # blit image
+        self.canvas.blit(self.figure.bbox)
 
     def _draw_center(self) -> None:
         # get center position
@@ -469,18 +477,25 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.textAreaMean.setText(str(mean))
         self.textAreaMax.setText(str(maxi))
 
-        if self._image_text is None:
-            self._image_text = self.figure.text(0.01, 0.98, "", fontsize=10, c="w", va="top")
+        # if cached image exists, show it
+        if self._image_cache is not None:
+            self.canvas.restore_region(self._image_cache)
 
-        self._image_text.set_text(
-            f"""\
-X/Y: {x:.1f} / {y:.1f}
-RA/Dec: {ra} / {dec} 
-Pixel value: {value:.1f}
-Area mean/max: {mean:.1f} / {maxi:.1f}
-        """
-        )
-        self.canvas.draw()
+        if self._show_overlay:
+            # update text overlay
+            self._image_text.set_text(
+                f"""\
+ X/Y: {x:.1f} / {y:.1f}
+ RA/Dec: {ra} / {dec}
+ Pixel value: {value:.1f}
+ Area mean/max: {mean:.1f} / {maxi:.1f}
+                """
+            )
+
+            # draw text and flush it
+            self.ax.draw_artist(self._image_text)
+            self.canvas.blit(self.figure.bbox)
+            self.canvas.flush_events()
 
         # clear axis
         self.ax_zoom.cla()
