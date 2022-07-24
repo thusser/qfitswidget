@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>320</width>
-    <height>194</height>
+    <width>333</width>
+    <height>230</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,29 +15,29 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <widget class="QGroupBox" name="groupBox">
+    <widget class="QGroupBox" name="groupBox_3">
      <property name="title">
-      <string>N/E directions</string>
+      <string>Text overlay</string>
      </property>
-     <layout class="QFormLayout" name="formLayout">
+     <layout class="QFormLayout" name="formLayout_3">
       <item row="0" column="0" colspan="2">
-       <widget class="QCheckBox" name="checkDirectionsVisible">
+       <widget class="QCheckBox" name="checkTextOverlayVisible">
         <property name="text">
          <string>Visible</string>
         </property>
        </widget>
       </item>
       <item row="1" column="0">
-       <widget class="QLabel" name="label">
+       <widget class="QLabel" name="label_5">
         <property name="text">
          <string>Color:</string>
         </property>
        </widget>
       </item>
       <item row="1" column="1">
-       <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0">
+       <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="1,0">
         <item>
-         <widget class="QFrame" name="labelDirectionsColor">
+         <widget class="QFrame" name="labelTextOverlayColor">
           <property name="frameShape">
            <enum>QFrame::StyledPanel</enum>
           </property>
@@ -47,7 +47,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QToolButton" name="buttonDirectionsColor">
+         <widget class="QToolButton" name="buttonTextOverlayColor">
           <property name="text">
            <string>...</string>
           </property>
@@ -58,7 +58,7 @@
      </layout>
     </widget>
    </item>
-   <item row="0" column="1">
+   <item row="0" column="1" rowspan="2">
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
       <string>Center mark</string>
@@ -125,6 +125,50 @@
          <number>999</number>
         </property>
        </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>N/E directions</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout">
+      <item row="0" column="0" colspan="2">
+       <widget class="QCheckBox" name="checkDirectionsVisible">
+        <property name="text">
+         <string>Visible</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Color:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0">
+        <item>
+         <widget class="QFrame" name="labelDirectionsColor">
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="buttonDirectionsColor">
+          <property name="text">
+           <string>...</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>

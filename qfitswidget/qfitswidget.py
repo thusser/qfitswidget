@@ -112,6 +112,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # options
         self._show_overlay = True
+        self._text_overlay_visible = True
+        self._text_overlay_color = "white"
         self._center_mark_visible = True
         self._center_mark_color = "red"
         self._center_mark_style = CenterMarkStyle.HALF_CROSS
@@ -322,7 +324,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 self._draw_center()
             if self._directions_visible:
                 self._draw_directions()
-            self._image_text = self.figure.text(0.01, 0.98, "", fontsize=10, c="w", va="top", animated=True)
+            if self._text_overlay_visible:
+                self._image_text = self.figure.text(
+                    0.01, 0.98, "", fontsize=10, c=self._text_overlay_color, va="top", animated=True
+                )
 
         # blit image
         self.canvas.blit(self.figure.bbox)
@@ -467,7 +472,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         if self._image_cache is not None:
             self.canvas.restore_region(self._image_cache)
 
-        if self._show_overlay:
+        if self._show_overlay and self._text_overlay_visible:
             # update text overlay
             self._image_text.set_text(
                 f"""\
@@ -625,6 +630,24 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     @directions_color.setter
     def directions_color(self, color: str) -> None:
         self._directions_color = color
+        self._draw_image()
+
+    @property
+    def text_overlay_visible(self) -> bool:
+        return self._text_overlay_visible
+
+    @text_overlay_visible.setter
+    def text_overlay_visible(self, visible: bool) -> None:
+        self._text_overlay_visible = visible
+        self._draw_image()
+
+    @property
+    def text_overlay_color(self) -> str:
+        return self._text_overlay_color
+
+    @text_overlay_color.setter
+    def text_overlay_color(self, color: str) -> None:
+        self._text_overlay_color = color
         self._draw_image()
 
 
