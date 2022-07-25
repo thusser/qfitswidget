@@ -1,7 +1,7 @@
 from __future__ import annotations
 import time
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
@@ -16,6 +16,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow, Circle
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.text import Text
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from qfitswidget.qt.fitswidget import Ui_FitsWidget
@@ -109,6 +110,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._image_plot = None
         self._image_text = None
         self._image_cache = None
+        self._center_artists: List[plt.Artist] = []
+        self._directions_artists: List[plt.Artist] = []
 
         # options
         self._show_overlay = True
@@ -322,73 +325,111 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # overlay
         if self._show_overlay:
             if self._center_mark_visible:
-                self._draw_center()
+                self._draw_center(True)
             if self._directions_visible:
-                self._draw_directions()
+                self._draw_directions(True)
             if self._text_overlay_visible:
-                self._image_text = self.figure.text(
-                    0.01, 0.98, "", fontsize=10, c=self._text_overlay_color, va="top", animated=True
-                )
+                self._draw_text_overlay("", True)
 
         # blit image
         self.canvas.blit(self.figure.bbox)
 
-    def _draw_center(self) -> None:
-        # get center position
-        x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
-
-        # size
-        ms = self._center_mark_size
-        ms2 = ms * 2
-
-        # (half) cross?
-        if self._center_mark_style in [CenterMarkStyle.HALF_CROSS, CenterMarkStyle.FULL_CROSS]:
-            # first two lines for half cross
-            self.ax.add_artist(
-                Line2D([x + ms, x + ms2], [y, y], color=self._center_mark_color, transform=self.ax.transData)
-            )
-            self.ax.add_artist(
-                Line2D([x, x], [y + ms, y + ms2], color=self._center_mark_color, transform=self.ax.transData)
+    def _draw_text_overlay(self, text: str, initial: bool = False) -> None:
+        if initial:
+            print("")
+            self._image_text = self.figure.text(
+                0.01, 0.98, "", fontsize=10, c=self._text_overlay_color, va="top", animated=True
             )
 
-            # full cross?
-            if self._center_mark_style == CenterMarkStyle.FULL_CROSS:
-                self.ax.add_artist(
-                    Line2D([x - ms, x - ms2], [y, y], color=self._center_mark_color, transform=self.ax.transData)
+        # draw text
+        self._image_text.set_text(text)
+        self.ax.draw_artist(self._image_text)
+
+    def _draw_center(self, initial: bool = False) -> None:
+        if initial:
+            # get center position
+            x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
+
+            # size
+            ms = self._center_mark_size
+            ms2 = ms * 2
+
+            # init
+            self._center_artists = []
+
+            # (half) cross?
+            if self._center_mark_style in [CenterMarkStyle.HALF_CROSS, CenterMarkStyle.FULL_CROSS]:
+                # first two lines for half cross
+                self._center_artists.append(
+                    Line2D([x + ms, x + ms2], [y, y], color=self._center_mark_color, transform=self.ax.transData)
                 )
-                self.ax.add_artist(
-                    Line2D([x, x], [y - ms, y - ms2], color=self._center_mark_color, transform=self.ax.transData)
+                self._center_artists.append(
+                    Line2D([x, x], [y + ms, y + ms2], color=self._center_mark_color, transform=self.ax.transData)
                 )
 
-        elif self._center_mark_style == CenterMarkStyle.CIRCLE:
-            self.ax.add_artist(
-                Circle((x, y), ms, fill=False, color=self._center_mark_color, transform=self.ax.transData)
+                # full cross?
+                if self._center_mark_style == CenterMarkStyle.FULL_CROSS:
+                    self._center_artists.append(
+                        Line2D([x - ms, x - ms2], [y, y], color=self._center_mark_color, transform=self.ax.transData)
+                    )
+                    self._center_artists.append(
+                        Line2D([x, x], [y - ms, y - ms2], color=self._center_mark_color, transform=self.ax.transData)
+                    )
+
+            elif self._center_mark_style == CenterMarkStyle.CIRCLE:
+                self._center_artists.append(
+                    Circle((x, y), ms, fill=False, color=self._center_mark_color, transform=self.ax.transData)
+                )
+
+            # add them
+            for a in self._center_artists:
+                self.ax.add_artist(a)
+
+        # draw them
+        for a in self._center_artists:
+            self.ax.draw_artist(a)
+
+    def _draw_directions(self, initial: bool = False) -> None:
+        if initial:
+            # size and stuff
+            length = 20
+            text = 35
+            x, y = 50, 50
+            angle_n = np.radians(self.position_angle)
+            self._directions_artists = []
+
+            # N line
+            w, h = length * np.sin(angle_n), length * np.cos(angle_n)
+            self._directions_artists.append(
+                FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color=self._directions_color)
             )
 
-    def _draw_directions(self) -> None:
-        length = 20
-        text = 35
-        x, y = 50, 50
-        angle_n = np.radians(self.position_angle)
+            # draw N text
+            w, h = -text * np.sin(angle_n), -text * np.cos(angle_n)
+            self._directions_artists.append(
+                Text(x - w, y - h, "N", ha="center", va="center", transform=None, c=self._directions_color)
+            )
 
-        # N line
-        w, h = length * np.sin(angle_n), length * np.cos(angle_n)
-        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color=self._directions_color)
-        self.figure.add_artist(l)
+            # E line
+            angle_e = angle_n - (np.pi / 2 if self.mirrored else -np.pi / 2)
+            w, h = -length * np.sin(angle_e), -length * np.cos(angle_e)
+            self._directions_artists.append(
+                FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color=self._directions_color)
+            )
 
-        # draw N text
-        w, h = -text * np.sin(angle_n), -text * np.cos(angle_n)
-        self.figure.text(x - w, y - h, "N", ha="center", va="center", transform=None, c=self._directions_color)
+            # draw E text
+            w, h = -text * np.sin(angle_e), -text * np.cos(angle_e)
+            self._directions_artists.append(
+                Text(x + w, y + h, "E", ha="center", va="center", transform=None, c=self._directions_color)
+            )
 
-        # E line
-        angle_e = angle_n - (np.pi / 2 if self.mirrored else -np.pi / 2)
-        w, h = -length * np.sin(angle_e), -length * np.cos(angle_e)
-        l = FancyArrow(x, y, w, h, width=0.2, head_width=5, transform=None, color=self._directions_color)
-        self.figure.add_artist(l)
+            # add them
+            for a in self._directions_artists:
+                self.figure.add_artist(a)
 
-        # draw E text
-        w, h = -text * np.sin(angle_e), -text * np.cos(angle_e)
-        self.figure.text(x + w, y + h, "E", ha="center", va="center", transform=None, c=self._directions_color)
+        # draw them
+        for a in self._directions_artists:
+            self.figure.draw_artist(a)
 
     def normalize_data(self, data):
         # for RGB data, we need to normalize manually, since it's not done by imshow
@@ -473,19 +514,22 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         if self._image_cache is not None:
             self.canvas.restore_region(self._image_cache)
 
-        if self._show_overlay and self._text_overlay_visible:
-            # update text overlay
-            self._image_text.set_text(
-                f"""\
+        if self._show_overlay:
+            if self._text_overlay_visible:
+                # update text overlay
+                text = f"""\
  X/Y: {x:.1f} / {y:.1f}
  RA/Dec: {ra} / {dec}
  Pixel value: {value:.1f}
  Area mean/max: {mean:.1f} / {maxi:.1f}
                 """
-            )
+                self._draw_text_overlay(text)
 
-            # draw text
-            self.ax.draw_artist(self._image_text)
+            if self._center_mark_visible:
+                self._draw_center()
+
+            if self._directions_visible:
+                self._draw_directions()
 
         # clear axis
         self.ax_zoom.cla()
