@@ -33,6 +33,7 @@ class Settings(QtWidgets.QDialog, Ui_DialogSettings):
         self.spinCenterSize.setValue(fits_widget.center_mark_size)
         self.checkDirectionsVisible.setChecked(fits_widget.directions_visible)
         self.labelDirectionsColor.setStyleSheet(f"background-color: {fits_widget.directions_color}")
+        self.checkZoomVisible.setChecked(fits_widget.zoom_visible)
 
         # connect signals
         self.checkTextOverlayVisible.stateChanged.connect(self._text_overlay_visible_changed)
@@ -43,6 +44,7 @@ class Settings(QtWidgets.QDialog, Ui_DialogSettings):
         self.spinCenterSize.valueChanged.connect(self._center_size_changed)
         self.checkDirectionsVisible.stateChanged.connect(self._directions_visible_changed)
         self.buttonDirectionsColor.clicked.connect(self._directions_set_color)
+        self.checkZoomVisible.stateChanged.connect(self._zoom_visible_changed)
 
     def _text_overlay_visible_changed(self, state: int) -> None:
         self.fits_widget.text_overlay_visible = bool(state)
@@ -75,6 +77,9 @@ class Settings(QtWidgets.QDialog, Ui_DialogSettings):
         color = QtWidgets.QColorDialog.getColor(QtGui.QColor(self.fits_widget.directions_color), self)
         self.labelDirectionsColor.setStyleSheet(f"background-color: {color.name()}")
         self.fits_widget.directions_color = color.name()
+
+    def _zoom_visible_changed(self, state: int) -> None:
+        self.fits_widget.zoom_visible = bool(state)
 
 
 __all__ = ["Settings"]

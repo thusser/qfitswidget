@@ -123,6 +123,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._center_mark_size = 30
         self._directions_visible = True
         self._directions_color = "white"
+        self._zoom_visible = False
 
         # Qt canvas
         self.figure, self.ax_bg = plt.subplots()
@@ -303,7 +304,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # if zoom axis exists, remove it
         if self.ax_zoom:
-            self.figure.delaxes(self.ax_zoom)
+            self.ax_zoom.remove()
+            del self.ax_zoom
             self.ax_zoom = None
 
         # RGB?
@@ -330,7 +332,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 self._draw_directions(True)
             if self._text_overlay_visible:
                 self._draw_text_overlay("", True)
-            self._draw_zoom(None, True)
+            if self._zoom_visible:
+                self._draw_zoom(None, True)
 
         # blit image
         self.canvas.blit(self.figure.bbox)
@@ -434,7 +437,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     def _draw_zoom(self, data: Optional[np.ndarray[float]] = None, initial: bool = False) -> None:
         if initial:
-            print("initial")
             px = 1 / plt.rcParams["figure.dpi"]  # pixel in inches
             self.ax_zoom = inset_axes(self.ax_bg, width=100 * px, height=100 * px, loc="upper right")
             self.ax_zoom.set_xticks([])
@@ -568,7 +570,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             if self._directions_visible:
                 self._draw_directions()
 
-            self._draw_zoom(cut_normed)
+            if self._zoom_visible:
+                self._draw_zoom(cut_normed)
 
         # draw it
         self.canvas.blit(self.figure.bbox)
@@ -707,6 +710,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     @text_overlay_color.setter
     def text_overlay_color(self, color: str) -> None:
         self._text_overlay_color = color
+        self._draw_image()
+
+    @property
+    def zoom_visible(self) -> bool:
+        return self._zoom_visible
+
+    @zoom_visible.setter
+    def zoom_visible(self, visible: bool) -> None:
+        self._zoom_visible = visible
         self._draw_image()
 
 
