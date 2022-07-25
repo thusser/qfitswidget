@@ -126,6 +126,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.ax_bg.axis("off")
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_axes((0, 0, 1, 1))
+        self.ax.axis("off")
         self.tools = NavigationToolbar(self, self.canvas, self.widgetTools, coordinates=False)
         self.widgetCanvas.layout().addWidget(self.canvas)
         self.widgetTools.layout().addWidget(self.tools)
