@@ -123,7 +123,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._center_mark_size = 30
         self._directions_visible = True
         self._directions_color = "white"
-        self._zoom_visible = False
+        self._zoom_visible = True
 
         # Qt canvas
         self.figure, self.ax_bg = plt.subplots()
@@ -448,7 +448,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # no data
         if data is None:
-            return
+            data = np.zeros((11, 11))
 
         # RGB?
         rgb = len(data.shape) == 3
