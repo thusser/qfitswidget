@@ -139,12 +139,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.canvas.mpl_connect("draw_event", self._draw_handler)
 
         # and for zoom
-        # self.figure_zoom, self.ax_zoom = plt.subplots()
-        px = 1 / plt.rcParams["figure.dpi"]  # pixel in inches
-        self.ax_zoom = inset_axes(self.ax_bg, width=100 * px, height=100 * px, loc="upper right")
-        self.ax_zoom.set_xticks([])
-        self.ax_zoom.set_yticks([])
-        # self.ax_zoom.axis("off")
+        self.ax_zoom = None
 
         # set cuts
         self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
@@ -306,6 +301,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         while len(self.figure.texts) > 0:
             self.figure.texts[0].remove()
 
+        # if zoom axis exists, remove it
+        if self.ax_zoom:
+            self.figure.delaxes(self.ax_zoom)
+            self.ax_zoom = None
+
         # RGB?
         rgb = len(self.scaled_data.shape) == 3
 
@@ -330,6 +330,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 self._draw_directions(True)
             if self._text_overlay_visible:
                 self._draw_text_overlay("", True)
+            self._draw_zoom(None, True)
 
         # blit image
         self.canvas.blit(self.figure.bbox)
@@ -431,6 +432,42 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         for a in self._directions_artists:
             self.figure.draw_artist(a)
 
+    def _draw_zoom(self, data: Optional[np.ndarray[float]] = None, initial: bool = False) -> None:
+        if initial:
+            print("initial")
+            px = 1 / plt.rcParams["figure.dpi"]  # pixel in inches
+            self.ax_zoom = inset_axes(self.ax_bg, width=100 * px, height=100 * px, loc="upper right")
+            self.ax_zoom.set_xticks([])
+            self.ax_zoom.set_yticks([])
+            # self.ax_zoom.axis("off")
+
+        if not self.ax_zoom:
+            return
+
+        # no data
+        if data is None:
+            return
+
+        # RGB?
+        rgb = len(data.shape) == 3
+
+        # no empty axis?
+        if not any([d == 0 for d in data.shape]):
+            # clim?
+            vmin, vmax = self._image_plot.get_clim() if self._image_plot is not None else (0, 1)
+
+            # plot
+            with plt.style.context("dark_background"):
+                zoom = self.ax_zoom.imshow(
+                    data,
+                    cmap=None if rgb else self.cmap,
+                    interpolation="nearest",
+                    origin="lower",
+                    vmin=vmin,
+                    vmax=vmax,
+                )
+                self.ax_zoom.draw_artist(zoom)
+
     def normalize_data(self, data):
         # for RGB data, we need to normalize manually, since it's not done by imshow
         if len(data.shape) == 3:
@@ -531,30 +568,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             if self._directions_visible:
                 self._draw_directions()
 
-        # clear axis
-        self.ax_zoom.cla()
-        self.ax_zoom.set_xticks([])
-        self.ax_zoom.set_yticks([])
-
-        # RGB?
-        rgb = len(cut_normed.shape) == 3
-
-        # no empty axis?
-        if not any([d == 0 for d in cut_normed.shape]):
-            # clim?
-            vmin, vmax = self._image_plot.get_clim() if self._image_plot is not None else (0, 1)
-
-            # plot
-            with plt.style.context("dark_background"):
-                zoom = self.ax_zoom.imshow(
-                    cut_normed,
-                    cmap=None if rgb else self.cmap,
-                    interpolation="nearest",
-                    origin="lower",
-                    vmin=vmin,
-                    vmax=vmax,
-                )
-                self.ax_zoom.draw_artist(zoom)
+            self._draw_zoom(cut_normed)
 
         # draw it
         self.canvas.blit(self.figure.bbox)
