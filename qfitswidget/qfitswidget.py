@@ -303,14 +303,14 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.figure.texts[0].remove()
 
         # RGB?
-        rgb = len(self.trimmed_data.shape) == 3
+        rgb = len(self.scaled_data.shape) == 3
 
         # no empty axis?
-        if not any([d == 0 for d in self.trimmed_data.shape]):
+        if not any([d == 0 for d in self.scaled_data.shape]):
             # plot
             with plt.style.context("dark_background"):
                 self._image_plot = self.ax.imshow(
-                    self.trimmed_data, cmap=None if rgb else self.cmap, interpolation="nearest", origin="lower"
+                    self.scaled_data, cmap=None if rgb else self.cmap, interpolation="nearest", origin="lower"
                 )
             self.ax.axis("off")
             self.figure.subplots_adjust(0, 0.005, 1, 1)
@@ -497,7 +497,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # no empty axis?
         if not any([d == 0 for d in cut_normed.shape]):
             # clim?
-            vmin, vmax = self._image_plot.get_clim() if self._image_plot is not None else (0, 255)
+            vmin, vmax = self._image_plot.get_clim() if self._image_plot is not None else (0, 1)
 
             # plot
             with plt.style.context("dark_background"):
@@ -506,8 +506,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                     cmap=None if rgb else self.cmap,
                     interpolation="nearest",
                     origin="lower",
-                    vmin=vmin / 255.0,
-                    vmax=vmax / 255.0,
+                    vmin=vmin,
+                    vmax=vmax,
                 )
                 self.ax_zoom.draw_artist(zoom)
 
