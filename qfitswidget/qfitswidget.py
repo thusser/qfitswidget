@@ -1,7 +1,7 @@
 from __future__ import annotations
 import time
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
@@ -33,7 +33,7 @@ class CenterMarkStyle(Enum):
 
 
 class ProcessMouseHoverSignals(QtCore.QObject):
-    finished = pyqtSignal(float, float, str, str, float, float, float, np.ndarray)
+    finished = pyqtSignal(float, float, str, str, np.ndarray, float, float, np.ndarray)
 
 
 class ProcessMouseHover(QRunnable):
@@ -55,9 +55,11 @@ class ProcessMouseHover(QRunnable):
         except ValueError:
             ra, dec = "", ""
 
-        # value and mean/max
+        # value
         iy, ix = int(self.y), int(self.x)
-        value = self.data[iy, ix]
+        value = self.data[iy, ix, :] if len(self.data.shape) == 3 else np.array([self.data[iy, ix]])
+
+        # mean / max
         if len(self.data.shape) == 2:
             cut = self.data[iy - 10 : iy + 11, ix - 10 : ix + 11]
         else:
@@ -539,7 +541,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         t.signals.finished.connect(self._update_mouse_over)
         self.mouse_over_thread_pool.tryStart(t)
 
-    @pyqtSlot(float, float, str, str, float, float, float, np.ndarray)
+    @pyqtSlot(float, float, str, str, np.ndarray, float, float, np.ndarray)
     def _update_mouse_over(
         self, x: float, y: float, ra: str, dec: str, value: float, mean: float, maxi: float, cut_normed: np.ndarray
     ) -> None:
@@ -550,12 +552,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         if self._show_overlay:
             if self._text_overlay_visible:
                 # update text overlay
-                text = f"""\
- X/Y: {x:.1f} / {y:.1f}
- RA/Dec: {ra} / {dec}
- Pixel value: {value:.1f}
- Area mean/max: {mean:.1f} / {maxi:.1f}
-                """
+                text = f"X/Y: {x:.1f} / {y:.1f}\n"
+                text += f"RA/Dec: {ra} / {dec}\n"
+                val = ", ".join([f"{v:.1f}" for v in value])
+                text += f"Pixel value: {val}\n"
+                text += f"Area mean/max: {mean:.1f} / {maxi:.1f}\n"
                 self._draw_text_overlay(text)
 
             if self._center_mark_visible:

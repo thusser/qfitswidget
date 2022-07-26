@@ -41,6 +41,8 @@ class Ui_FitsWidget(object):
         self.widgetCanvas = QtWidgets.QWidget(FitsWidget)
         self.widgetCanvas.setObjectName("widgetCanvas")
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.widgetCanvas)
+        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_3.setSpacing(0)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.horizontalLayout_2.addWidget(self.widgetCanvas)
         self.labelColorbar = QtWidgets.QLabel(FitsWidget)
