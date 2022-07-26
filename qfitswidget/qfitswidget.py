@@ -112,6 +112,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._image_cache = None
         self._center_artists: List[plt.Artist] = []
         self._directions_artists: List[plt.Artist] = []
+        self._zoom_artist: Optional[plt.Artist] = None
 
         # options
         self._show_overlay = True
@@ -123,14 +124,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._center_mark_size = 30
         self._directions_visible = True
         self._directions_color = "white"
-        self._zoom_visible = True
+        self._zoom_visible = False
 
         # Qt canvas
-        self.figure, self.ax_bg = plt.subplots()
-        self.ax_bg.axis("off")
-        self.canvas = FigureCanvas(self.figure)
-        self.ax = self.figure.add_axes((0, 0, 1, 1))
+        self.figure, self.ax = plt.subplots()
         self.ax.axis("off")
+        self.canvas = FigureCanvas(self.figure)
         self.tools = NavigationToolbar(self, self.canvas, self.widgetTools, coordinates=False)
         self.widgetCanvas.layout().addWidget(self.canvas)
         self.widgetTools.layout().addWidget(self.tools)
@@ -139,8 +138,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.canvas.mpl_connect("motion_notify_event", self._mouse_moved)
         self.canvas.mpl_connect("draw_event", self._draw_handler)
 
-        # and for zoom
-        self.ax_zoom = None
+        # zoom
+        self.ax_zoom = self.figure.add_axes([0.8, 0.8, 0.15, 0.15])
+        self.ax_zoom.set_aspect("equal")
+        self.ax_zoom.patch.set_alpha(0.01)
+        self.ax_zoom.axis("off")
 
         # set cuts
         self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
@@ -301,12 +303,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.figure.artists[0].remove()
         while len(self.figure.texts) > 0:
             self.figure.texts[0].remove()
-
-        # if zoom axis exists, remove it
-        if self.ax_zoom:
-            self.ax_zoom.remove()
-            del self.ax_zoom
-            self.ax_zoom = None
+        if self._zoom_artist:
+            self._zoom_artist.remove()
+            self._zoom_artist = None
+            self.ax_zoom.cla()
+            self.ax_zoom.axis("off")
 
         # RGB?
         rgb = len(self.scaled_data.shape) == 3
@@ -340,7 +341,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     def _draw_text_overlay(self, text: str, initial: bool = False) -> None:
         if initial:
-            print("")
             self._image_text = self.figure.text(
                 0.01, 0.98, "", fontsize=10, c=self._text_overlay_color, va="top", animated=True
             )
@@ -436,13 +436,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.figure.draw_artist(a)
 
     def _draw_zoom(self, data: Optional[np.ndarray[float]] = None, initial: bool = False) -> None:
-        if initial:
-            px = 1 / plt.rcParams["figure.dpi"]  # pixel in inches
-            self.ax_zoom = inset_axes(self.ax_bg, width=100 * px, height=100 * px, loc="upper right")
-            self.ax_zoom.set_xticks([])
-            self.ax_zoom.set_yticks([])
-            # self.ax_zoom.axis("off")
-
         if not self.ax_zoom:
             return
 
@@ -460,15 +453,16 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
             # plot
             with plt.style.context("dark_background"):
-                zoom = self.ax_zoom.imshow(
+                self._zoom_artist = self.ax_zoom.imshow(
                     data,
                     cmap=None if rgb else self.cmap,
                     interpolation="nearest",
                     origin="lower",
                     vmin=vmin,
                     vmax=vmax,
+                    animated=True,
                 )
-                self.ax_zoom.draw_artist(zoom)
+                self.ax_zoom.draw_artist(self._zoom_artist)
 
     def normalize_data(self, data):
         # for RGB data, we need to normalize manually, since it's not done by imshow
