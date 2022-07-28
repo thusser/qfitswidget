@@ -354,7 +354,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def _draw_center(self, initial: bool = False) -> None:
         if initial:
             # get center position
-            x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
+            if "CRPIX1" in self.hdu.header and "CRPIX2" in self.hdu.header:
+                x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
+            else:
+                x, y = self.hdu.data.shape[1] // 2, self.hdu.data.shape[0] // 2
 
             # size
             ms = self._center_mark_size
@@ -529,8 +532,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # get x/y
         x, y = event.xdata, event.ydata
 
-        # only main canvas!
-        if event.canvas != self.canvas or x is None or y is None:
+        # only main axes!
+        if event.inaxes != self.ax or x is None or y is None:
             return
 
         # store position
