@@ -1,5 +1,0 @@
-matplotlib
-PyQt5
-numpy
-astropy
-scikit-image

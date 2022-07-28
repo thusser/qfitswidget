@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,1,0">
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1,0">
    <property name="spacing">
     <number>0</number>
    </property>
@@ -30,188 +30,86 @@
     <number>0</number>
    </property>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4">
-     <property name="spacing">
-      <number>0</number>
-     </property>
-     <item>
-      <layout class="QVBoxLayout" name="verticalLayout">
-       <property name="spacing">
-        <number>0</number>
-       </property>
-       <item>
-        <widget class="QFrame" name="groupInfo">
-         <layout class="QHBoxLayout" name="horizontalLayout_5">
-          <item>
-           <widget class="QLabel" name="label_2">
-            <property name="text">
-             <string>X:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="textImageX">
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_3">
-            <property name="text">
-             <string>Y:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="textImageY">
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_4">
-            <property name="text">
-             <string>RA:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="textWorldRA">
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_5">
-            <property name="text">
-             <string>Dec:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="textWorldDec">
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
-        <widget class="QFrame" name="frame_2">
-         <property name="frameShape">
-          <enum>QFrame::NoFrame</enum>
+    <widget class="QWidget" name="widget_2" native="true">
+     <layout class="QHBoxLayout" name="horizontalLayout_6">
+      <property name="topMargin">
+       <number>1</number>
+      </property>
+      <property name="bottomMargin">
+       <number>1</number>
+      </property>
+      <item>
+       <spacer name="horizontalSpacer_4">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QWidget" name="widgetTools" native="true">
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <property name="spacing">
+          <number>0</number>
          </property>
-         <property name="frameShadow">
-          <enum>QFrame::Raised</enum>
+         <property name="leftMargin">
+          <number>0</number>
          </property>
-         <layout class="QHBoxLayout" name="horizontalLayout">
-          <item>
-           <widget class="QLabel" name="label_7">
-            <property name="text">
-             <string>Value:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="textPixelValue">
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_11">
-            <property name="text">
-             <string>Mean:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="textAreaMean">
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_12">
-            <property name="text">
-             <string>Max:</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="textAreaMax">
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <widget class="QLabel" name="labelZoom">
-       <property name="minimumSize">
-        <size>
-         <width>101</width>
-         <height>101</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>101</width>
-         <height>101</height>
-        </size>
-       </property>
-       <property name="frameShape">
-        <enum>QFrame::StyledPanel</enum>
-       </property>
-       <property name="frameShadow">
-        <enum>QFrame::Raised</enum>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-       <property name="scaledContents">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_5">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,0">
+    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0">
      <item>
-      <widget class="QImageView" name="imageView" native="true"/>
+      <widget class="QWidget" name="widgetCanvas" native="true">
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+       </layout>
+      </widget>
      </item>
      <item>
       <widget class="QLabel" name="labelColorbar">
@@ -405,14 +303,6 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>QImageView</class>
-   <extends>QWidget</extends>
-   <header>qimageview.h</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources>
   <include location="resources.rc"/>
  </resources>
