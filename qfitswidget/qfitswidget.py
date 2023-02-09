@@ -1,7 +1,9 @@
 from __future__ import annotations
+
+import asyncio
 import time
 from enum import Enum
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Callable, Dict
 import cv2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
@@ -30,6 +32,15 @@ class CenterMarkStyle(Enum):
     FULL_CROSS = "Cross"
     HALF_CROSS = "Half cross"
     CIRCLE = "Circle"
+
+
+class ClickHandlerMode(str, Enum):
+    RADEC = "ra"
+    RADEC_OFFSETS = "radec_offsets"
+    ALTAZ = "altaz"
+    ALTAZ_OFFSETS = "altaz_offsets"
+    XY = "xy"
+    XY_OFFSETS = "xy_offsets"
 
 
 class ProcessMouseHoverSignals(QtCore.QObject):
@@ -138,6 +149,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # mouse
         self.canvas.mpl_connect("motion_notify_event", self._mouse_moved)
+        self.canvas.mpl_connect("button_press_event", self._mouse_clicked)
         self.canvas.mpl_connect("draw_event", self._draw_handler)
 
         # zoom
@@ -161,6 +173,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # mouse over update thread pool
         self.mouse_over_thread_pool = QtCore.QThreadPool()
         self.mouse_over_thread_pool.setMaxThreadCount(1)
+
+        # click handlers
+        self.canvas.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self._click_handlers: List[Tuple[ClickHandlerMode, str, Callable[[float, float], None]]] = []
+        self._click_menu = None
 
     def display(self, hdu: fits.PrimaryHDU) -> None:
         """Display image from given HDU.
@@ -718,6 +735,49 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def zoom_visible(self, visible: bool) -> None:
         self._zoom_visible = visible
         self._draw_image()
+
+    def clear_click_handlers(self) -> None:
+        """Clears all click handlers."""
+        self._click_handlers.clear()
+
+    def add_click_handlers(self, mode: ClickHandlerMode, text: str, callback: Callable[[float, float], None]) -> None:
+        """Add click handler.
+
+        Args:
+            mode: Mode for click handler.
+            text: Text to show in menu.
+            callback: Callback method to run.
+        """
+        self._click_handlers.append((mode, text, callback))
+
+    def _mouse_clicked(self, event):
+        """Called, whenever the mouse is clicked.
+
+        Args:
+            event: MPL event
+        """
+        print(
+            "%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f"
+            % ("double" if event.dblclick else "single", event.button, event.x, event.y, event.xdata, event.ydata)
+        )
+
+        QtCore.QMetaObject.invokeMethod(self, "clicked")
+
+    @pyqtSlot()
+    def clicked(self):
+        # get mouse position
+        pos = self.mapFromGlobal(QtGui.QCursor.pos())
+
+        print(pos)
+        pos = self.cursor().pos()
+        # pos = QtCore.QPoint(100, 100)
+
+        self._click_menu = QtWidgets.QMenu(self.canvas)
+        self._click_menu.addSection("Test")
+        act = self._click_menu.addAction(QtWidgets.QAction("test"))
+        self._click_menu.popup(pos)
+        self._click_menu.move(pos)
+        print("exec done")
 
 
 __all__ = ["QFitsWidget"]
