@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "qfitswidget"
 packages = [{ include = "qfitswidget" }]
-version = "0.9.3"
+version = "0.9.4"
 description = "PyQt widget for displaying FITS files"
 authors = ["Tim-Oliver Husser <thusser@uni-goettingen.de>"]
 license = "MIT"
