@@ -52,7 +52,7 @@ class ProcessMouseHover(QRunnable):
             coord = pixel_to_skycoord(self.x, self.y, self.wcs)
             ra = coord.ra.to_string(u.hour, precision=1)
             dec = coord.dec.to_string(precision=1)
-        except ValueError:
+        except (ValueError, AttributeError):
             ra, dec = "", ""
 
         # value
