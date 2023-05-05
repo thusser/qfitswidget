@@ -1,17 +1,17 @@
 [tool.poetry]
 name = "qfitswidget"
 packages = [{ include = "qfitswidget" }]
-version = "0.9.1"
+version = "0.9.2"
 description = "PyQt widget for displaying FITS files"
 authors = ["Tim-Oliver Husser <thusser@uni-goettingen.de>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.11"
-matplotlib = "^3.5.2"
-numpy = "^1.23.1"
-astropy = "^5.1"
-PyQt5 = "^5.15.7"
+python = ">=3.9,<3.12"
+matplotlib = "^3.7.1"
+numpy = "^1.24.3"
+astropy = "^5.2.2"
+PyQt5 = "^5.15.9"
 
 [tool.poetry.dev-dependencies]
 black = ">21.0"
