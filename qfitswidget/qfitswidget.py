@@ -184,7 +184,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         radec_left = self.wcs.pixel_to_world(cx - 10, cy)
 
         # position_angle measures as <from>.position_angle(<to>), so for the PA of the up vector, we need to do this:
-        self.position_angle = 180 - np.degrees(radec.position_angle(radec_up)).deg
+        self.position_angle = (180.0 * u.deg - radec.position_angle(radec_up)).wrap_at(360 * u.deg).deg
 
         # the image is mirrored, i.e. East is not anti-clockwise of N, if the difference of the up and left PAs is
         # negative
