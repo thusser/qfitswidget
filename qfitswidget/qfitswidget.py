@@ -180,7 +180,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # get position angle and check whether image was mirrored
         cx, cy = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
         radec = self.wcs.pixel_to_world(cx, cy)
-        radec_up = self.wcs.pixel_to_world(cx, cy + 10)
+        radec_up = self.wcs.pixel_to_world(cx, cy - 10)
         radec_left = self.wcs.pixel_to_world(cx - 10, cy)
 
         # position_angle measures as <from>.position_angle(<to>), so for the PA of the up vector, we need to do this:
