@@ -179,11 +179,18 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # get position angle and check whether image was mirrored
         cx, cy = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
-        ra1 = self.wcs.pixel_to_world(cx, cy)
-        ra2 = self.wcs.pixel_to_world(cx, cy + 10)
-        ra3 = self.wcs.pixel_to_world(cx + 10, cy)
-        self.position_angle = 180 - np.degrees(ra2.position_angle(ra1)).deg
-        self.mirrored = ra3.position_angle(ra1) > 0
+        radec = self.wcs.pixel_to_world(cx, cy)
+        radec_up = self.wcs.pixel_to_world(cx, cy + 10)
+        radec_left = self.wcs.pixel_to_world(cx - 10, cy)
+
+        # position_angle measures as <from>.position_angle(<to>), so for the PA of the up vector, we need to do this:
+        self.position_angle = 180 - np.degrees(radec.position_angle(radec_up)).deg
+
+        # the image is mirrored, i.e. East is not anti-clockwise of N, if the difference of the up and left PAs is
+        # negative
+        pa_up = radec.position_angle(radec_up).wrap_at(360 * u.deg)
+        pa_left = radec.position_angle(radec_left).wrap_at(360 * u.deg)
+        self.mirrored = pa_up < pa_left
 
         # do we have a bayer matrix given?
         if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
