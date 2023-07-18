@@ -178,14 +178,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             return
 
         # get position angle and check whether image was mirrored
-        if "PC1_1" in self.hdu.header:
-            CD11, CD12 = self.hdu.header["PC1_1"], self.hdu.header["PC1_2"]
-            CD21, CD22 = self.hdu.header["PC2_1"], self.hdu.header["PC2_2"]
-            self.position_angle = np.degrees(np.arctan2(CD12, CD11))
-            self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
-        else:
-            self.position_angle = 0
-            self.mirrored = None
+        cx, cy = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
+        coord = self.wcs.pixel_to_world(cx, cy)
+        coord_up = self.wcs.pixel_to_world(cx, cy + 10)
+        coord_left = self.wcs.pixel_to_world(cx - 10, cy)
+        pa_up = coord.position_angle(coord_up).wrap_at(360 * u.deg)
+        pa_left = coord.position_angle(coord_left).wrap_at(360 * u.deg)
+        self.position_angle = -pa_up.to(u.deg).value
+        print(self.position_angle)
+        self.mirrored = pa_up - pa_left > 0
 
         # do we have a bayer matrix given?
         if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
