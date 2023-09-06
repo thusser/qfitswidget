@@ -1,11 +1,14 @@
 from __future__ import annotations
 import time
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, List, Tuple
 import cv2
+import logging
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
@@ -32,8 +35,19 @@ class CenterMarkStyle(Enum):
     CIRCLE = "Circle"
 
 
+@dataclass
+class ProcessMouseHoverResult:
+    x: float
+    y: float
+    coord: SkyCoord
+    value: np.nparray
+    mean: float
+    maxi: float
+    cut: np.ndarray
+
+
 class ProcessMouseHoverSignals(QtCore.QObject):
-    finished = pyqtSignal(float, float, str, str, np.ndarray, float, float, np.ndarray)
+    finished = pyqtSignal(ProcessMouseHoverResult)
 
 
 class ProcessMouseHover(QRunnable):
@@ -50,10 +64,9 @@ class ProcessMouseHover(QRunnable):
         # convert to RA/Dec and show it
         try:
             coord = pixel_to_skycoord(self.x, self.y, self.wcs)
-            ra = coord.ra.to_string(u.hour, precision=1)
-            dec = coord.dec.to_string(precision=1)
         except (ValueError, AttributeError):
-            ra, dec = "", ""
+            logging.exception("bla")
+            coord = None
 
         # value
         iy, ix = int(self.y), int(self.x)
@@ -78,7 +91,9 @@ class ProcessMouseHover(QRunnable):
         cut_normed = self.fits_widget.normalize_data(cut)
 
         # emit
-        self.signals.finished.emit(self.x, self.y, ra, dec, value, mean, maxi, cut_normed)
+        self.signals.finished.emit(
+            ProcessMouseHoverResult(x=self.x, y=self.y, coord=coord, value=value, mean=mean, maxi=maxi, cut=cut_normed)
+        )
 
         # no idea why, but it's a good idea to sleep a little before we finish
         time.sleep(0.01)
@@ -545,9 +560,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         t.signals.finished.connect(self._update_mouse_over)
         self.mouse_over_thread_pool.tryStart(t)
 
-    @pyqtSlot(float, float, str, str, np.ndarray, float, float, np.ndarray)
+    @pyqtSlot(ProcessMouseHoverResult)
+    @pyqtSlot(float, float, np.ndarray, float, float, np.ndarray)
     def _update_mouse_over(
-        self, x: float, y: float, ra: str, dec: str, value: float, mean: float, maxi: float, cut_normed: np.ndarray
+        self,
+        result: ProcessMouseHoverResult,
     ) -> None:
         # if cached image exists, show it
         if self._image_cache is not None:
@@ -556,11 +573,26 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         if self._show_overlay:
             if self._text_overlay_visible:
                 # update text overlay
-                text = f"X/Y: {x:.1f} / {y:.1f}\n"
-                text += f"RA/Dec: {ra} / {dec}\n"
-                val = ", ".join([f"{v:.1f}" for v in value])
+                text = f"X/Y: {result.x:.1f} / {result.y:.1f}\n"
+
+                # WCS?
+                if "RA---TAN" in self.hdu.header["CTYPE1"]:
+                    text += (
+                        f"RA/Dec: {result.coord.ra.to_string(u.hour, precision=1)} / "
+                        f"{result.coord.dec.to_string(precision=1)}\n"
+                    )
+                    pass
+                elif "HPLN-TAN" in self.hdu.header["CTYPE1"]:
+                    text += (
+                        f"Tx/Ty: {result.coord.Tx.to_string(precision=1)} / "
+                        f"{result.coord.Ty.to_string(precision=1)}\n"
+                    )
+                    pass
+
+                # more
+                val = ", ".join([f"{v:.1f}" for v in result.value])
                 text += f"Pixel value: {val}\n"
-                text += f"Area mean/max: {mean:.1f} / {maxi:.1f}\n"
+                text += f"Area mean/max: {result.mean:.1f} / {result.maxi:.1f}\n"
                 self._draw_text_overlay(text)
 
             if self._center_mark_visible:
@@ -570,7 +602,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 self._draw_directions()
 
             if self._zoom_visible:
-                self._draw_zoom(cut_normed)
+                self._draw_zoom(result.cut)
 
         # draw it
         self.canvas.blit(self.figure.bbox)
