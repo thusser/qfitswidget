@@ -557,7 +557,14 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             if self._text_overlay_visible:
                 # update text overlay
                 text = f"X/Y: {x:.1f} / {y:.1f}\n"
-                text += f"RA/Dec: {ra} / {dec}\n"
+
+                # WCS?
+                if "RA---TAN" in self.hdu.header["CTYPE1"]:
+                    text += f"RA/Dec: {ra} / {dec}\n"
+                elif "HPLN-TAN" in self.hdu.header["CTYPE1"]:
+                    text += f"Tx/Ty: {ra} / {dec}\n"
+
+                # more
                 val = ", ".join([f"{v:.1f}" for v in value])
                 text += f"Pixel value: {val}\n"
                 text += f"Area mean/max: {mean:.1f} / {maxi:.1f}\n"
