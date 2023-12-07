@@ -65,7 +65,6 @@ class ProcessMouseHover(QRunnable):
         try:
             coord = pixel_to_skycoord(self.x, self.y, self.wcs)
         except (ValueError, AttributeError):
-            logging.exception("bla")
             coord = None
 
         # value
@@ -193,15 +192,22 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             return
 
         # get position angle and check whether image was mirrored
-        cx, cy = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
-        coord = self.wcs.pixel_to_world(cx, cy)
-        coord_up = self.wcs.pixel_to_world(cx, cy + 10)
-        coord_left = self.wcs.pixel_to_world(cx - 10, cy)
-        pa_up = coord.position_angle(coord_up).wrap_at(360 * u.deg)
-        pa_left = coord.position_angle(coord_left).wrap_at(360 * u.deg)
-        self.position_angle = -pa_up.to(u.deg).value
-        print(self.position_angle)
-        self.mirrored = pa_up - pa_left > 0
+        if (
+            "CRPIX1" in self.hdu.header
+            and "CRPIX2" in self.hdu.header
+            and "CTYPE1" in self.hdu.header
+            and self.hdu.header["CTYPE1"]
+            and "CTYPE2" in self.hdu.header
+            and self.hdu.header["CTYPE2"]
+        ):
+            cx, cy = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
+            coord = self.wcs.pixel_to_world(cx, cy)
+            coord_up = self.wcs.pixel_to_world(cx, cy + 10)
+            coord_left = self.wcs.pixel_to_world(cx - 10, cy)
+            pa_up = coord.position_angle(coord_up).wrap_at(360 * u.deg)
+            pa_left = coord.position_angle(coord_left).wrap_at(360 * u.deg)
+            self.position_angle = -pa_up.to(u.deg).value
+            self.mirrored = pa_up - pa_left > 0
 
         # do we have a bayer matrix given?
         if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
@@ -415,6 +421,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.ax.draw_artist(a)
 
     def _draw_directions(self, initial: bool = False) -> None:
+        if self.position_angle is None:
+            return
+
         if initial:
             # size and stuff
             length = 20
@@ -576,18 +585,17 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 text = f"X/Y: {result.x:.1f} / {result.y:.1f}\n"
 
                 # WCS?
-                if "RA---TAN" in self.hdu.header["CTYPE1"]:
-                    text += (
-                        f"RA/Dec: {result.coord.ra.to_string(u.hour, precision=1)} / "
-                        f"{result.coord.dec.to_string(precision=1)}\n"
-                    )
-                    pass
-                elif "HPLN-TAN" in self.hdu.header["CTYPE1"]:
-                    text += (
-                        f"Tx/Ty: {result.coord.Tx.to_string(precision=1)} / "
-                        f"{result.coord.Ty.to_string(precision=1)}\n"
-                    )
-                    pass
+                if "CTYPE1" in self.hdu.header:
+                    if "RA---TAN" in self.hdu.header["CTYPE1"]:
+                        text += (
+                            f"RA/Dec: {result.coord.ra.to_string(u.hour, precision=1)} / "
+                            f"{result.coord.dec.to_string(precision=1)}\n"
+                        )
+                    elif "HPLN-TAN" in self.hdu.header["CTYPE1"]:
+                        text += (
+                            f"Tx/Ty: {result.coord.Tx.to_string(precision=1)} / "
+                            f"{result.coord.Ty.to_string(precision=1)}\n"
+                        )
 
                 # more
                 val = ", ".join([f"{v:.1f}" for v in result.value])
