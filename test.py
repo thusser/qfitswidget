@@ -2,7 +2,7 @@ import sys
 from PyQt5 import QtWidgets
 from astropy.io import fits
 
-from qfitswidget import QFitsWidget
+from qfitswidget import QFitsWidget, MenuHeader, MenuAction, MenuSeparator
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -12,6 +12,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.viewer = QFitsWidget(self)
         self.setCentralWidget(self.viewer)
+
+        self.viewer.set_menu([
+            MenuHeader("Header"),
+            MenuAction("click me", lambda: print("clicked")),
+            MenuSeparator(),
+            MenuAction("End", lambda: print("end"))
+        ])
 
         hdu = fits.open(sys.argv[1])
         self.viewer.display(hdu[0])

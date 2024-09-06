@@ -2,7 +2,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Callable
 import cv2
 import logging
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -40,7 +40,6 @@ class CenterMarkStyle(Enum):
 class ProcessMouseHoverResult:
     x: float
     y: float
-    coord: SkyCoord
     value: np.nparray
     mean: float
     maxi: float
@@ -64,12 +63,6 @@ class ProcessMouseHover(QRunnable):
     def run(self) -> None:
         if self.data is None:
             return
-
-        # convert to RA/Dec and show it
-        try:
-            coord = pixel_to_skycoord(self.x, self.y, self.wcs)
-        except (ValueError, AttributeError):
-            coord = None
 
         # value
         iy, ix = int(self.y), int(self.x)
@@ -95,11 +88,32 @@ class ProcessMouseHover(QRunnable):
 
         # emit
         self.signals.finished.emit(
-            ProcessMouseHoverResult(x=self.x, y=self.y, coord=coord, value=value, mean=mean, maxi=maxi, cut=cut_normed)
+            ProcessMouseHoverResult(x=self.x, y=self.y, value=value, mean=mean, maxi=maxi, cut=cut_normed)
         )
 
         # no idea why, but it's a good idea to sleep a little before we finish
         time.sleep(0.01)
+
+
+class MenuEntry:
+    pass
+
+@dataclass
+class MenuHeader(MenuEntry):
+    """A header in the menu."""
+    text: str
+
+
+@dataclass
+class MenuAction(MenuEntry):
+    """A header in the menu."""
+    text: str
+    callback: Callable
+
+
+class MenuSeparator(MenuEntry):
+    pass
+
 
 class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     """PyQt Widget for displaying FITS images."""
@@ -124,6 +138,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.position_angle = None
         self.mirrored = None
         self.mouse_pos = (0, 0)
+        self.mouse_pos_wcs: Optional[SkyCoord] = None
         self.cmap = None
         self.norm = None
         self._image_plot = None
@@ -144,6 +159,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._directions_visible = True
         self._directions_color = "white"
         self._zoom_visible = True
+        self._menu_entries: List[MenuEntry] = []
 
         # Qt canvas
         self.figure, self.ax = plt.subplots()
@@ -568,20 +584,39 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # store position
         self.mouse_pos = (x, y)
 
+        # convert to RA/Dec and store it
+        try:
+            self.mouse_pos_wcs = pixel_to_skycoord(x, y, self.wcs)
+        except (ValueError, AttributeError):
+            self.mouse_pos_wcs = None
+
         # start in thread
         t = ProcessMouseHover(self)
         t.signals.finished.connect(self._update_mouse_over)
         self.mouse_over_thread_pool.tryStart(t)
 
     def _mouse_clicked(self, event):
+        msg = "x: {x:.2f}, y: {y:.2f}"
         if event.button is MouseButton.RIGHT:
+            # if no menu is set, quit here
+            if len(self._menu_entries) == 0:
+                return
+
+            # create menu
             menu = QtWidgets.QMenu(self)
-            menu.addSection("Clicked")
-            menu.addAction(QtWidgets.QAction("Quit", self))
-            menu.addAction(QtWidgets.QAction("1", self))
-            menu.addAction(QtWidgets.QAction("Q2uit", self))
-            menu.addAction(QtWidgets.QAction("Qu3it", self))
-            menu.addAction(QtWidgets.QAction("Qui4t", self))
+
+            # loop entries
+            for entry in self._menu_entries:
+                if isinstance(entry, MenuSeparator):
+                    menu.addSeparator()
+                elif isinstance(entry, MenuHeader):
+                    menu.addSection(entry.text)
+                elif isinstance(entry, MenuAction):
+                    action = QtWidgets.QAction(entry.text, self)
+                    action.triggered.connect(entry.callback)
+                    menu.addAction(action)
+
+            # show menu
             menu.exec_(QtGui.QCursor.pos())
 
     @pyqtSlot(ProcessMouseHoverResult)
@@ -603,13 +638,13 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 if "CTYPE1" in self.hdu.header:
                     if "RA---TAN" in self.hdu.header["CTYPE1"]:
                         text += (
-                            f"RA/Dec: {result.coord.ra.to_string(u.hour, precision=1)} / "
-                            f"{result.coord.dec.to_string(precision=1)}\n"
+                            f"RA/Dec: {self.mouse_pos_wcs.ra.to_string(u.hour, precision=1)} / "
+                            f"{self.mouse_pos_wcs.dec.to_string(precision=1)}\n"
                         )
                     elif "HPLN-TAN" in self.hdu.header["CTYPE1"]:
                         text += (
-                            f"Tx/Ty: {result.coord.Tx.to_string(precision=1)} / "
-                            f"{result.coord.Ty.to_string(precision=1)}\n"
+                            f"Tx/Ty: {self.mouse_pos_wcs.Tx.to_string(precision=1)} / "
+                            f"{self.mouse_pos_wcs.Ty.to_string(precision=1)}\n"
                         )
 
                 # more
@@ -775,5 +810,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._zoom_visible = visible
         self._draw_image()
 
+    def set_menu(self, entries: List[MenuEntry]) -> None:
+        self._menu_entries = entries
 
-__all__ = ["QFitsWidget"]
+    def clear_menu(self) -> None:
+        self._menu_entries.clear()
+
+__all__ = ["QFitsWidget", "MenuAction", "MenuHeader", "MenuSeparator"]
