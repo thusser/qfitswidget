@@ -15,6 +15,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
+from matplotlib.backend_bases import MouseButton
 from matplotlib.cm import ScalarMappable
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow, Circle
@@ -61,6 +62,9 @@ class ProcessMouseHover(QRunnable):
         self.data = fits_widget.data
 
     def run(self) -> None:
+        if self.data is None:
+            return
+
         # convert to RA/Dec and show it
         try:
             coord = pixel_to_skycoord(self.x, self.y, self.wcs)
@@ -96,7 +100,6 @@ class ProcessMouseHover(QRunnable):
 
         # no idea why, but it's a good idea to sleep a little before we finish
         time.sleep(0.01)
-
 
 class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     """PyQt Widget for displaying FITS images."""
@@ -152,6 +155,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # mouse
         self.canvas.mpl_connect("motion_notify_event", self._mouse_moved)
+        self.canvas.mpl_connect("button_press_event", self._mouse_clicked)
         self.canvas.mpl_connect("draw_event", self._draw_handler)
 
         # zoom
@@ -568,6 +572,17 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         t = ProcessMouseHover(self)
         t.signals.finished.connect(self._update_mouse_over)
         self.mouse_over_thread_pool.tryStart(t)
+
+    def _mouse_clicked(self, event):
+        if event.button is MouseButton.RIGHT:
+            menu = QtWidgets.QMenu(self)
+            menu.addSection("Clicked")
+            menu.addAction(QtWidgets.QAction("Quit", self))
+            menu.addAction(QtWidgets.QAction("1", self))
+            menu.addAction(QtWidgets.QAction("Q2uit", self))
+            menu.addAction(QtWidgets.QAction("Qu3it", self))
+            menu.addAction(QtWidgets.QAction("Qui4t", self))
+            menu.exec_(QtGui.QCursor.pos())
 
     @pyqtSlot(ProcessMouseHoverResult)
     @pyqtSlot(float, float, np.ndarray, float, float, np.ndarray)
