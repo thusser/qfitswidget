@@ -1,13 +1,18 @@
 from __future__ import annotations
+
+import functools
 import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, List, Tuple, Callable
 import cv2
 import logging
+
+import jinja2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
+from PyQt5.QtWidgets import QAction
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -22,6 +27,7 @@ from matplotlib.patches import FancyArrow, Circle
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.text import Text
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from scipy.constants import precision
 
 from qfitswidget.qt.fitswidget import Ui_FitsWidget
 from qfitswidget.navigationtoolbar import NavigationToolbar
@@ -582,7 +588,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             return
 
         # store position
-        self.mouse_pos = (x, y)
+        self.mouse_pos = (float(x), float(y))
 
         # convert to RA/Dec and store it
         try:
@@ -595,8 +601,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         t.signals.finished.connect(self._update_mouse_over)
         self.mouse_over_thread_pool.tryStart(t)
 
+    def _format_template(self, template: str) -> str:
+        environment = jinja2.Environment()
+        print(self.mouse_pos, type(self.mouse_pos[0]))
+        environment.filters["hms"] = lambda value: value.to_string(unit=u.hourangle, sep=':',pad=True, precision=1)
+        environment.filters["dms"] = lambda value: value.to_string(unit=u.degree, sep=':', pad=True, alwayssign= True, precision=1)
+        template = environment.from_string(template)
+        return template.render(pixel=self.mouse_pos, wcs=self.mouse_pos_wcs)
+
     def _mouse_clicked(self, event):
-        msg = "x: {x:.2f}, y: {y:.2f}"
         if event.button is MouseButton.RIGHT:
             # if no menu is set, quit here
             if len(self._menu_entries) == 0:
@@ -607,17 +620,30 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
             # loop entries
             for entry in self._menu_entries:
+                # format text
+                text = ""
+                if isinstance(entry, MenuHeader) or isinstance(entry, MenuAction):
+                    text = self._format_template(entry.text)
+
+                # add entry
                 if isinstance(entry, MenuSeparator):
                     menu.addSeparator()
                 elif isinstance(entry, MenuHeader):
-                    menu.addSection(entry.text)
+                    menu.addSection(text)
                 elif isinstance(entry, MenuAction):
-                    action = QtWidgets.QAction(entry.text, self)
-                    action.triggered.connect(entry.callback)
+                    action = QtWidgets.QAction(text, self)
+                    action.setData((entry.callback, self.mouse_pos, self.mouse_pos_wcs))
                     menu.addAction(action)
 
-            # show menu
+            # connect slot and show menu
+            menu.triggered.connect(self._menu_action_clicked)
             menu.exec_(QtGui.QCursor.pos())
+
+    @pyqtSlot(QAction)
+    def _menu_action_clicked(self, action: QAction):
+        """Run callback for menu click."""
+        callback, pixel, wcs = action.data()
+        callback(pixel, wcs)
 
     @pyqtSlot(ProcessMouseHoverResult)
     @pyqtSlot(float, float, np.ndarray, float, float, np.ndarray)
