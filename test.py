@@ -16,10 +16,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewer = QFitsWidget(self)
         self.setCentralWidget(self.viewer)
 
-        self.viewer.set_menu([
-            MenuHeader("RA: {{wcs.ra|hms}}, Dec: {{wcs.dec|dms}}"),
-            MenuAction("Offset telescope to position", self.offset_telescope)
-        ])
+        self.viewer.set_menu(
+            [
+                MenuHeader("RA: {{wcs.ra|hms}}, Dec: {{wcs.dec|dms}}"),
+                MenuAction("Offset telescope to position", self.offset_telescope),
+            ]
+        )
 
         hdu = fits.open(sys.argv[1])
         self.viewer.display(hdu[0])
@@ -27,7 +29,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def offset_telescope(self, pixel: Tuple[float, float], wcs: SkyCoord):
         print(wcs.dec)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     wnd = MainWindow()
     wnd.show()

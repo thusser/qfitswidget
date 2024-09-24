@@ -104,15 +104,18 @@ class ProcessMouseHover(QRunnable):
 class MenuEntry:
     pass
 
+
 @dataclass
 class MenuHeader(MenuEntry):
     """A header in the menu."""
+
     text: str
 
 
 @dataclass
 class MenuAction(MenuEntry):
     """A header in the menu."""
+
     text: str
     callback: Callable
 
@@ -603,9 +606,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     def _format_template(self, template: str) -> str:
         environment = jinja2.Environment()
-        print(self.mouse_pos, type(self.mouse_pos[0]))
-        environment.filters["hms"] = lambda value: value.to_string(unit=u.hourangle, sep=':',pad=True, precision=1)
-        environment.filters["dms"] = lambda value: value.to_string(unit=u.degree, sep=':', pad=True, alwayssign= True, precision=1)
+        environment.filters["hms"] = lambda value: value.to_string(unit=u.hourangle, sep=":", pad=True, precision=1)
+        environment.filters["dms"] = lambda value: value.to_string(
+            unit=u.degree, sep=":", pad=True, alwayssign=True, precision=1
+        )
         template = environment.from_string(template)
         return template.render(pixel=self.mouse_pos, wcs=self.mouse_pos_wcs)
 
@@ -841,5 +845,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
     def clear_menu(self) -> None:
         self._menu_entries.clear()
+
 
 __all__ = ["QFitsWidget", "MenuAction", "MenuHeader", "MenuSeparator"]
