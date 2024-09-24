@@ -1,1 +1,1 @@
-from .qfitswidget import QFitsWidget
+from .qfitswidget import QFitsWidget, MenuAction, MenuHeader, MenuSeparator
