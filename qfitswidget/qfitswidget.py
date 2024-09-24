@@ -1,25 +1,33 @@
 from __future__ import annotations
 
-import asyncio
+import functools
 import time
+from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Tuple, Callable, Dict
+from typing import Optional, List, Tuple, Callable
 import cv2
+import logging
+
+import jinja2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
+from PyQt5.QtWidgets import QAction
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
+from matplotlib.backend_bases import MouseButton
 from matplotlib.cm import ScalarMappable
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow, Circle
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.text import Text
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from scipy.constants import precision
 
 from qfitswidget.qt.fitswidget import Ui_FitsWidget
 from qfitswidget.navigationtoolbar import NavigationToolbar
@@ -34,17 +42,18 @@ class CenterMarkStyle(Enum):
     CIRCLE = "Circle"
 
 
-class ClickHandlerMode(str, Enum):
-    RADEC = "ra"
-    RADEC_OFFSETS = "radec_offsets"
-    ALTAZ = "altaz"
-    ALTAZ_OFFSETS = "altaz_offsets"
-    XY = "xy"
-    XY_OFFSETS = "xy_offsets"
+@dataclass
+class ProcessMouseHoverResult:
+    x: float
+    y: float
+    value: np.nparray
+    mean: float
+    maxi: float
+    cut: np.ndarray
 
 
 class ProcessMouseHoverSignals(QtCore.QObject):
-    finished = pyqtSignal(float, float, str, str, np.ndarray, float, float, np.ndarray)
+    finished = pyqtSignal(ProcessMouseHoverResult)
 
 
 class ProcessMouseHover(QRunnable):
@@ -58,13 +67,8 @@ class ProcessMouseHover(QRunnable):
         self.data = fits_widget.data
 
     def run(self) -> None:
-        # convert to RA/Dec and show it
-        try:
-            coord = pixel_to_skycoord(self.x, self.y, self.wcs)
-            ra = coord.ra.to_string(u.hour, precision=1)
-            dec = coord.dec.to_string(precision=1)
-        except (ValueError, AttributeError):
-            ra, dec = "", ""
+        if self.data is None:
+            return
 
         # value
         iy, ix = int(self.y), int(self.x)
@@ -89,10 +93,32 @@ class ProcessMouseHover(QRunnable):
         cut_normed = self.fits_widget.normalize_data(cut)
 
         # emit
-        self.signals.finished.emit(self.x, self.y, ra, dec, value, mean, maxi, cut_normed)
+        self.signals.finished.emit(
+            ProcessMouseHoverResult(x=self.x, y=self.y, value=value, mean=mean, maxi=maxi, cut=cut_normed)
+        )
 
         # no idea why, but it's a good idea to sleep a little before we finish
         time.sleep(0.01)
+
+
+class MenuEntry:
+    pass
+
+@dataclass
+class MenuHeader(MenuEntry):
+    """A header in the menu."""
+    text: str
+
+
+@dataclass
+class MenuAction(MenuEntry):
+    """A header in the menu."""
+    text: str
+    callback: Callable
+
+
+class MenuSeparator(MenuEntry):
+    pass
 
 
 class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
@@ -118,6 +144,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.position_angle = None
         self.mirrored = None
         self.mouse_pos = (0, 0)
+        self.mouse_pos_wcs: Optional[SkyCoord] = None
         self.cmap = None
         self.norm = None
         self._image_plot = None
@@ -138,6 +165,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._directions_visible = True
         self._directions_color = "white"
         self._zoom_visible = True
+        self._menu_entries: List[MenuEntry] = []
 
         # Qt canvas
         self.figure, self.ax = plt.subplots()
@@ -174,11 +202,6 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.mouse_over_thread_pool = QtCore.QThreadPool()
         self.mouse_over_thread_pool.setMaxThreadCount(1)
 
-        # click handlers
-        self.canvas.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self._click_handlers: List[Tuple[ClickHandlerMode, str, Callable[[float, float], None]]] = []
-        self._click_menu = None
-
     def display(self, hdu: fits.PrimaryHDU) -> None:
         """Display image from given HDU.
 
@@ -195,14 +218,22 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             return
 
         # get position angle and check whether image was mirrored
-        if "PC1_1" in self.hdu.header:
-            CD11, CD12 = self.hdu.header["PC1_1"], self.hdu.header["PC1_2"]
-            CD21, CD22 = self.hdu.header["PC2_1"], self.hdu.header["PC2_2"]
-            self.position_angle = np.degrees(np.arctan2(CD12, CD11))
-            self.mirrored = (CD11 * CD22 - CD12 * CD21) < 0
-        else:
-            self.position_angle = 0
-            self.mirrored = None
+        if (
+            "CRPIX1" in self.hdu.header
+            and "CRPIX2" in self.hdu.header
+            and "CTYPE1" in self.hdu.header
+            and self.hdu.header["CTYPE1"]
+            and "CTYPE2" in self.hdu.header
+            and self.hdu.header["CTYPE2"]
+        ):
+            cx, cy = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
+            coord = self.wcs.pixel_to_world(cx, cy)
+            coord_up = self.wcs.pixel_to_world(cx, cy + 10)
+            coord_left = self.wcs.pixel_to_world(cx - 10, cy)
+            pa_up = coord.position_angle(coord_up).wrap_at(360 * u.deg)
+            pa_left = coord.position_angle(coord_left).wrap_at(360 * u.deg)
+            self.position_angle = -pa_up.to(u.deg).value
+            self.mirrored = pa_up - pa_left > 0
 
         # do we have a bayer matrix given?
         if "BAYERPAT" in self.hdu.header or "COLORTYP" in self.hdu.header:
@@ -416,6 +447,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.ax.draw_artist(a)
 
     def _draw_directions(self, initial: bool = False) -> None:
+        if self.position_angle is None:
+            return
+
         if initial:
             # size and stuff
             length = 20
@@ -554,16 +588,68 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             return
 
         # store position
-        self.mouse_pos = (x, y)
+        self.mouse_pos = (float(x), float(y))
+
+        # convert to RA/Dec and store it
+        try:
+            self.mouse_pos_wcs = pixel_to_skycoord(x, y, self.wcs)
+        except (ValueError, AttributeError):
+            self.mouse_pos_wcs = None
 
         # start in thread
         t = ProcessMouseHover(self)
         t.signals.finished.connect(self._update_mouse_over)
         self.mouse_over_thread_pool.tryStart(t)
 
-    @pyqtSlot(float, float, str, str, np.ndarray, float, float, np.ndarray)
+    def _format_template(self, template: str) -> str:
+        environment = jinja2.Environment()
+        print(self.mouse_pos, type(self.mouse_pos[0]))
+        environment.filters["hms"] = lambda value: value.to_string(unit=u.hourangle, sep=':',pad=True, precision=1)
+        environment.filters["dms"] = lambda value: value.to_string(unit=u.degree, sep=':', pad=True, alwayssign= True, precision=1)
+        template = environment.from_string(template)
+        return template.render(pixel=self.mouse_pos, wcs=self.mouse_pos_wcs)
+
+    def _mouse_clicked(self, event):
+        if event.button is MouseButton.RIGHT:
+            # if no menu is set, quit here
+            if len(self._menu_entries) == 0:
+                return
+
+            # create menu
+            menu = QtWidgets.QMenu(self)
+
+            # loop entries
+            for entry in self._menu_entries:
+                # format text
+                text = ""
+                if isinstance(entry, MenuHeader) or isinstance(entry, MenuAction):
+                    text = self._format_template(entry.text)
+
+                # add entry
+                if isinstance(entry, MenuSeparator):
+                    menu.addSeparator()
+                elif isinstance(entry, MenuHeader):
+                    menu.addSection(text)
+                elif isinstance(entry, MenuAction):
+                    action = QtWidgets.QAction(text, self)
+                    action.setData((entry.callback, self.mouse_pos, self.mouse_pos_wcs))
+                    menu.addAction(action)
+
+            # connect slot and show menu
+            menu.triggered.connect(self._menu_action_clicked)
+            menu.exec_(QtGui.QCursor.pos())
+
+    @pyqtSlot(QAction)
+    def _menu_action_clicked(self, action: QAction):
+        """Run callback for menu click."""
+        callback, pixel, wcs = action.data()
+        callback(pixel, wcs)
+
+    @pyqtSlot(ProcessMouseHoverResult)
+    @pyqtSlot(float, float, np.ndarray, float, float, np.ndarray)
     def _update_mouse_over(
-        self, x: float, y: float, ra: str, dec: str, value: float, mean: float, maxi: float, cut_normed: np.ndarray
+        self,
+        result: ProcessMouseHoverResult,
     ) -> None:
         # if cached image exists, show it
         if self._image_cache is not None:
@@ -572,11 +658,25 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         if self._show_overlay:
             if self._text_overlay_visible:
                 # update text overlay
-                text = f"X/Y: {x:.1f} / {y:.1f}\n"
-                text += f"RA/Dec: {ra} / {dec}\n"
-                val = ", ".join([f"{v:.1f}" for v in value])
+                text = f"X/Y: {result.x:.1f} / {result.y:.1f}\n"
+
+                # WCS?
+                if "CTYPE1" in self.hdu.header:
+                    if "RA---TAN" in self.hdu.header["CTYPE1"]:
+                        text += (
+                            f"RA/Dec: {self.mouse_pos_wcs.ra.to_string(u.hour, precision=1)} / "
+                            f"{self.mouse_pos_wcs.dec.to_string(precision=1)}\n"
+                        )
+                    elif "HPLN-TAN" in self.hdu.header["CTYPE1"]:
+                        text += (
+                            f"Tx/Ty: {self.mouse_pos_wcs.Tx.to_string(precision=1)} / "
+                            f"{self.mouse_pos_wcs.Ty.to_string(precision=1)}\n"
+                        )
+
+                # more
+                val = ", ".join([f"{v:.1f}" for v in result.value])
                 text += f"Pixel value: {val}\n"
-                text += f"Area mean/max: {mean:.1f} / {maxi:.1f}\n"
+                text += f"Area mean/max: {result.mean:.1f} / {result.maxi:.1f}\n"
                 self._draw_text_overlay(text)
 
             if self._center_mark_visible:
@@ -586,7 +686,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 self._draw_directions()
 
             if self._zoom_visible:
-                self._draw_zoom(cut_normed)
+                self._draw_zoom(result.cut)
 
         # draw it
         self.canvas.blit(self.figure.bbox)
@@ -736,48 +836,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._zoom_visible = visible
         self._draw_image()
 
-    def clear_click_handlers(self) -> None:
-        """Clears all click handlers."""
-        self._click_handlers.clear()
+    def set_menu(self, entries: List[MenuEntry]) -> None:
+        self._menu_entries = entries
 
-    def add_click_handlers(self, mode: ClickHandlerMode, text: str, callback: Callable[[float, float], None]) -> None:
-        """Add click handler.
+    def clear_menu(self) -> None:
+        self._menu_entries.clear()
 
-        Args:
-            mode: Mode for click handler.
-            text: Text to show in menu.
-            callback: Callback method to run.
-        """
-        self._click_handlers.append((mode, text, callback))
-
-    def _mouse_clicked(self, event):
-        """Called, whenever the mouse is clicked.
-
-        Args:
-            event: MPL event
-        """
-        print(
-            "%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f"
-            % ("double" if event.dblclick else "single", event.button, event.x, event.y, event.xdata, event.ydata)
-        )
-
-        QtCore.QMetaObject.invokeMethod(self, "clicked")
-
-    @pyqtSlot()
-    def clicked(self):
-        # get mouse position
-        pos = self.mapFromGlobal(QtGui.QCursor.pos())
-
-        print(pos)
-        pos = self.cursor().pos()
-        # pos = QtCore.QPoint(100, 100)
-
-        self._click_menu = QtWidgets.QMenu(self.canvas)
-        self._click_menu.addSection("Test")
-        act = self._click_menu.addAction(QtWidgets.QAction("test"))
-        self._click_menu.popup(pos)
-        self._click_menu.move(pos)
-        print("exec done")
-
-
-__all__ = ["QFitsWidget"]
+__all__ = ["QFitsWidget", "MenuAction", "MenuHeader", "MenuSeparator"]
