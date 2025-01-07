@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "qfitswidget"
 packages = [{ include = "qfitswidget" }]
-version = "0.10.0"
+version = "0.10.1"
 description = "PyQt widget for displaying FITS files"
 authors = ["Tim-Oliver Husser <thusser@uni-goettingen.de>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.10,<3.14"
 matplotlib = "^3.9.2"
 numpy = "^2.1.1"
 astropy = "^6.1.3"
