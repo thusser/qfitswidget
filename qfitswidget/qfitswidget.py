@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import functools
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Tuple, Callable
+from typing import Callable, Any, Protocol
 import cv2
-import logging
-
 import jinja2
 from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
+import numpy.typing as npt
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
 from PyQt5.QtWidgets import QAction
 from astropy.coordinates import SkyCoord
@@ -20,14 +18,15 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
+from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton
 from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
+from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow, Circle
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.text import Text
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.constants import precision
 
 from qfitswidget.qt.fitswidget import Ui_FitsWidget
 from qfitswidget.navigationtoolbar import NavigationToolbar
@@ -46,7 +45,7 @@ class CenterMarkStyle(Enum):
 class ProcessMouseHoverResult:
     x: float
     y: float
-    value: np.nparray
+    value: npt.NDArray[np.floating[Any]]
     mean: float
     maxi: float
     cut: np.ndarray
@@ -124,38 +123,44 @@ class MenuSeparator(MenuEntry):
     pass
 
 
+class CanNormalize(Protocol):
+    def __call__(
+        self, value: npt.NDArray[np.floating[Any]], clip: bool | None = None
+    ) -> npt.NDArray[np.floating[Any]]: ...
+
+
 class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     """PyQt Widget for displaying FITS images."""
 
     """Signal emitted when new cuts have been calculated."""
     calculatedCuts = pyqtSignal(int, int)
 
-    def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         """Init new widget."""
         QtWidgets.QWidget.__init__(self, parent)
-        self.setupUi(self)
+        self.setupUi(self)  # type: ignore
 
         # store hdu and (scaled) data
-        self.hdu = None
-        self.data = None
-        self.trimmed_data = None
-        self.sorted_data = None
-        self.scaled_data = None
+        self.hdu: fits.PrimaryHDU | None = None
+        self.data: npt.NDArray[np.floating[Any]] | None = None
+        self.trimmed_data: npt.NDArray[np.floating[Any]] | None = None
+        self.sorted_data: npt.NDArray[np.floating[Any]] | None = None
+        self.scaled_data: npt.NDArray[np.floating[Any]] | None = None
         self.pixmap = None
         self.cuts = None
         self.wcs = None
         self.position_angle = None
         self.mirrored = None
-        self.mouse_pos = (0, 0)
-        self.mouse_pos_wcs: Optional[SkyCoord] = None
-        self.cmap = None
-        self.norm = None
-        self._image_plot = None
-        self._image_text = None
+        self.mouse_pos = (0.0, 0.0)
+        self.mouse_pos_wcs: SkyCoord | None = None
+        self.cmap: str | None = None
+        self.norm: Normalize | None = None
+        self._image_plot: AxesImage | None = None
+        self._image_text: Text | None = None
         self._image_cache = None
-        self._center_artists: List[plt.Artist] = []
-        self._directions_artists: List[plt.Artist] = []
-        self._zoom_artist: Optional[plt.Artist] = None
+        self._center_artists: list[Artist] = []
+        self._directions_artists: list[Artist] = []
+        self._zoom_artist: Artist | None = None
 
         # options
         self._show_overlay = True
@@ -168,7 +173,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._directions_visible = True
         self._directions_color = "white"
         self._zoom_visible = True
-        self._menu_entries: List[MenuEntry] = []
+        self._menu_entries: list[MenuEntry] = []
 
         # Qt canvas
         self.figure, self.ax = plt.subplots()
@@ -184,7 +189,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.canvas.mpl_connect("draw_event", self._draw_handler)
 
         # zoom
-        self.ax_zoom = self.figure.add_axes([0.8, 0.8, 0.15, 0.15])
+        self.ax_zoom = self.figure.add_axes((0.8, 0.8, 0.15, 0.15))
         self.ax_zoom.set_aspect("equal")
         self.ax_zoom.patch.set_alpha(0.01)
         self.ax_zoom.axis("off")
@@ -283,7 +288,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # draw image
         self._trim_image()
 
-    def _draw_handler(self, draw_event):
+    def _draw_handler(self, draw_event: Any) -> None:
         self._image_cache = self.canvas.copy_from_bbox(self.figure.bbox)
 
     @pyqtSlot(int, name="on_checkTrimSec_stateChanged")
@@ -292,7 +297,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
 
         # store flattened and sorted pixels
-        self.sorted_data = np.sort(self.trimmed_data[self.trimmed_data > 0].flatten(), kind="stable")
+        self.sorted_data = (
+            np.sort(self.trimmed_data[self.trimmed_data > 0].flatten(), kind="stable")
+            if self.trimmed_data is not None
+            else None
+        )
 
         # draw it
         self._draw_image()
@@ -328,7 +337,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             raise ValueError("Invalid stretch")
 
         # normalize data
-        self.scaled_data = self.normalize_data(self.trimmed_data)
+        self.scaled_data = self.normalize_data(self.trimmed_data) if self.trimmed_data is not None else None
 
         # get name of colormap
         self.cmap = self.comboColormap.currentText()
@@ -399,11 +408,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             )
 
         # draw text
-        self._image_text.set_text(text)
-        self.ax.draw_artist(self._image_text)
+        if self._image_text is not None:
+            self._image_text.set_text(text)
+            self.ax.draw_artist(self._image_text)
 
     def _draw_center(self, initial: bool = False) -> None:
-        if initial:
+        if initial and self.hdu is not None and self.hdu.header is not None and self.hdu.data is not None:
             # get center position
             if "CRPIX1" in self.hdu.header and "CRPIX2" in self.hdu.header:
                 x, y = self.hdu.header["CRPIX1"], self.hdu.header["CRPIX2"]
@@ -494,7 +504,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         for a in self._directions_artists:
             self.figure.draw_artist(a)
 
-    def _draw_zoom(self, data: Optional[np.ndarray[float]] = None, initial: bool = False) -> None:
+    def _draw_zoom(self, data: npt.NDArray[np.floating[Any]] | None = None, initial: bool = False) -> None:
         if not self.ax_zoom:
             return
 
@@ -523,7 +533,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
                 )
                 self.ax_zoom.draw_artist(self._zoom_artist)
 
-    def normalize_data(self, data):
+    def normalize_data(self, data: npt.NDArray[np.floating[Any]]) -> npt.NDArray[np.floating[Any]]:
+        if self.norm is None:
+            raise ValueError("No normalization available")
         # for RGB data, we need to normalize manually, since it's not done by imshow
         if len(data.shape) == 3:
             return np.array([self.norm(data[d, :, :]) for d in range(data.shape[0])])
@@ -545,6 +557,8 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         percent = float(preset[:-1])
 
         # get number of pixels to discard at both ends
+        if self.sorted_data is None:
+            return
         n = int(len(self.sorted_data) * (1.0 - (percent / 100.0)))
 
         # get min/max in cut range
@@ -554,7 +568,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # update gui
         self._update_cuts_gui(*cuts)
 
-    def _update_cuts_gui(self, lo, hi):
+    def _update_cuts_gui(self, lo: int, hi: int) -> None:
         """Update current cuts shown in GUI.
 
         Args:
@@ -576,7 +590,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self.spinLoCut.blockSignals(True)
         self.spinHiCut.blockSignals(True)
 
-    def _mouse_moved(self, event):
+    def _mouse_moved(self, event: Any) -> None:
         """Called, whenever the mouse is moved.
 
         Args:
@@ -610,10 +624,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         environment.filters["dms"] = lambda value: value.to_string(
             unit=u.degree, sep=":", pad=True, alwayssign=True, precision=1
         )
-        template = environment.from_string(template)
-        return template.render(pixel=self.mouse_pos, wcs=self.mouse_pos_wcs)
+        tpl = environment.from_string(template)
+        return tpl.render(pixel=self.mouse_pos, wcs=self.mouse_pos_wcs)
 
-    def _mouse_clicked(self, event):
+    def _mouse_clicked(self, event: Any) -> None:
         if event.button is MouseButton.RIGHT:
             # if no menu is set, quit here
             if len(self._menu_entries) == 0:
@@ -644,7 +658,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             menu.exec_(QtGui.QCursor.pos())
 
     @pyqtSlot(QAction)
-    def _menu_action_clicked(self, action: QAction):
+    def _menu_action_clicked(self, action: QAction) -> None:
         """Run callback for menu click."""
         callback, pixel, wcs = action.data()
         callback(pixel, wcs)
@@ -660,12 +674,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             self.canvas.restore_region(self._image_cache)
 
         if self._show_overlay:
-            if self._text_overlay_visible:
+            if self._text_overlay_visible and self.hdu is not None:
                 # update text overlay
                 text = f"X/Y: {result.x:.1f} / {result.y:.1f}\n"
 
                 # WCS?
-                if "CTYPE1" in self.hdu.header:
+                if "CTYPE1" in self.hdu.header and self.mouse_pos_wcs is not None:
                     if "RA---TAN" in self.hdu.header["CTYPE1"]:
                         text += (
                             f"RA/Dec: {self.mouse_pos_wcs.ra.to_string(u.hour, precision=1)} / "
@@ -699,7 +713,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # draw
         # self.canvas_zoom.draw()
 
-    def _trimsec(self, hdu, data=None) -> np.ndarray:
+    def _trimsec(
+        self, hdu: fits.ImageHDU, data: npt.NDArray[np.floating[Any]] | None = None
+    ) -> npt.NDArray[np.floating[Any]]:
         """Trim an image to TRIMSEC.
 
         Args:
@@ -712,7 +728,10 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
 
         # no data?
         if data is None:
-            data = self.hdu.data.copy()
+            if self.hdu is not None and self.hdu.data is not None:
+                data = self.hdu.data.copy()
+            else:
+                raise ValueError("No data.")
 
         # keyword not given?
         if "TRIMSEC" not in hdu.header:
@@ -740,7 +759,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # return data
         return data
 
-    def _debayer(self, arr: np.ndarray, pattern: str) -> np.ndarray:
+    def _debayer(self, arr: npt.NDArray[np.floating[Any]], pattern: str) -> npt.NDArray[np.floating[Any]]:
         """Debayer an image"""
 
         # what pattern do we have?
@@ -840,7 +859,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         self._zoom_visible = visible
         self._draw_image()
 
-    def set_menu(self, entries: List[MenuEntry]) -> None:
+    def set_menu(self, entries: list[MenuEntry]) -> None:
         self._menu_entries = entries
 
     def clear_menu(self) -> None:
