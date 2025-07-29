@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
 from PyQt5 import QtGui, QtCore
 from matplotlib.backend_bases import NavigationToolbar2
@@ -31,7 +31,7 @@ class NavigationToolbar(NavigationToolbar2QT):
     )
 
     def __init__(self, fits_widget: QFitsWidget, *args: Any, **kwargs: Any):
-        NavigationToolbar2QT.__init__(self, *args, **kwargs)
+        NavigationToolbar2QT.__init__(self, *args, **kwargs)  # type: ignore
         self.fits_widget = fits_widget
         self.settings = Settings(fits_widget)
         self.show_overlay = True
@@ -51,7 +51,7 @@ class NavigationToolbar(NavigationToolbar2QT):
 
         else:
             # use MPL icon
-            return super()._icon(name)
+            return cast(QtGui.QIcon, super()._icon(name))  # type: ignore
 
     def customize(self, *args: Any) -> None:
         if not self.settings.isVisible():

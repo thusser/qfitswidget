@@ -18,7 +18,11 @@ dependencies = [
 dev = [
     "black>=25.1.0,<26",
     "flake8>=7.3.0",
+    "matplotlib-stubs>=0.1.0",
+    "mypy>=1.17.0",
     "pre-commit>=4.2.0,<5",
+    "pyqt5-stubs==5.15.6.0",
+    "scipy-stubs>=1.16.0.2",
 ]
 
 [tool.hatch.build.targets.sdist]

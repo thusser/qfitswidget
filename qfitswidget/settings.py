@@ -16,7 +16,7 @@ class Settings(QtWidgets.QDialog, Ui_DialogSettings):
         from .qfitswidget import CenterMarkStyle
 
         QtWidgets.QWidget.__init__(self, parent)
-        self.setupUi(self)
+        self.setupUi(self)  # type: ignore
 
         # store
         self.fits_widget = fits_widget
