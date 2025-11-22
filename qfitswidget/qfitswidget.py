@@ -1,16 +1,13 @@
 from __future__ import annotations
-
+import sys
 import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Any, Protocol
 import cv2
 import jinja2
-from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 import numpy.typing as npt
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
-from PyQt5.QtWidgets import QAction
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -25,10 +22,27 @@ from matplotlib.colors import Normalize
 from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow, Circle
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.text import Text
 
-from qfitswidget.qt.fitswidget import Ui_FitsWidget
+try:
+    import PyQt6
+except ImportError:
+    try:
+        import PySide6
+    except ImportError:
+        raise ImportError("neither PyQt6 nor PySide6 is installed")
+
+if "PyQt6" in sys.modules:
+    # PyQt6
+    from PyQt6 import QtGui, QtWidgets, QtCore
+    from PyQt6.QtCore import Signal as Signal, Slot as Slot
+else:
+    # PySide6
+    from PySide6 import QtGui, QtWidgets, QtCore
+    from PySide6.QtCore import Signal, Slot
+
+from qfitswidget.qt.fitswidget_ui import Ui_FitsWidget
 from qfitswidget.navigationtoolbar import NavigationToolbar
 from qfitswidget.norm import FuncNorm
 
@@ -52,12 +66,12 @@ class ProcessMouseHoverResult:
 
 
 class ProcessMouseHoverSignals(QtCore.QObject):
-    finished = pyqtSignal(ProcessMouseHoverResult)
+    finished = Signal(ProcessMouseHoverResult)
 
 
-class ProcessMouseHover(QRunnable):
+class ProcessMouseHover(QtCore.QRunnable):
     def __init__(self, fits_widget: QFitsWidget):
-        QRunnable.__init__(self)
+        QtCore.QRunnable.__init__(self)
         self.signals = ProcessMouseHoverSignals()
         self.fits_widget = fits_widget
         self.x = fits_widget.mouse_pos[0]
@@ -133,7 +147,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     """PyQt Widget for displaying FITS images."""
 
     """Signal emitted when new cuts have been calculated."""
-    calculatedCuts = pyqtSignal(int, int)
+    calculatedCuts = Signal(int, int)
 
     def __init__(self, parent: QtWidgets.QWidget | None = None):
         """Init new widget."""
@@ -291,7 +305,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def _draw_handler(self, draw_event: Any) -> None:
         self._image_cache = self.canvas.copy_from_bbox(self.figure.bbox)
 
-    @pyqtSlot(int, name="on_checkTrimSec_stateChanged")
+    @Slot(int, name="on_checkTrimSec_stateChanged")
     def _trim_image(self) -> None:
         # cut trimsec
         self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
@@ -306,12 +320,12 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # draw it
         self._draw_image()
 
-    @pyqtSlot(str, name="on_comboStretch_currentTextChanged")
-    @pyqtSlot(str, name="on_comboColormap_currentTextChanged")
-    @pyqtSlot(int, name="on_checkColormapReverse_stateChanged")
-    @pyqtSlot(str, name="on_comboCuts_currentTextChanged")
-    @pyqtSlot(float, name="on_spinLoCut_valueChanged")
-    @pyqtSlot(float, name="on_spinLoCut_valueChanged")
+    @Slot(str, name="on_comboStretch_currentTextChanged")
+    @Slot(str, name="on_comboColormap_currentTextChanged")
+    @Slot(int, name="on_checkColormapReverse_stateChanged")
+    @Slot(str, name="on_comboCuts_currentTextChanged")
+    @Slot(float, name="on_spinLoCut_valueChanged")
+    @Slot(float, name="on_spinLoCut_valueChanged")
     def _draw_image(self) -> None:
         if self.sorted_data is None:
             return
@@ -657,14 +671,14 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             menu.triggered.connect(self._menu_action_clicked)
             menu.exec_(QtGui.QCursor.pos())
 
-    @pyqtSlot(QAction)
-    def _menu_action_clicked(self, action: QAction) -> None:
+    @Slot(QtGui.QAction)
+    def _menu_action_clicked(self, action: QtGui.QAction) -> None:
         """Run callback for menu click."""
         callback, pixel, wcs = action.data()
         callback(pixel, wcs)
 
-    @pyqtSlot(ProcessMouseHoverResult)
-    @pyqtSlot(float, float, np.ndarray, float, float, np.ndarray)
+    @Slot(ProcessMouseHoverResult)
+    @Slot(float, float, np.ndarray, float, float, np.ndarray)
     def _update_mouse_over(
         self,
         result: ProcessMouseHoverResult,

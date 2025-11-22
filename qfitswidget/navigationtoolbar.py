@@ -6,7 +6,7 @@ from matplotlib.backend_bases import NavigationToolbar2
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 
 from .settings import Settings
-from .qt.resources import *
+from .qt.resources_rc import *
 
 if TYPE_CHECKING:
     from .qfitswidget import QFitsWidget

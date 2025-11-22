@@ -5,7 +5,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 if TYPE_CHECKING:
     from .qfitswidget import QFitsWidget
-from .qt.settings import Ui_DialogSettings
+from .qt.settings_ui import Ui_DialogSettings
 
 
 class Settings(QtWidgets.QDialog, Ui_DialogSettings):
