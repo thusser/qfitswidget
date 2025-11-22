@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, TYPE_CHECKING, cast
 
-from PyQt5 import QtGui, QtCore
+from PySide6 import QtGui, QtCore
 from matplotlib.backend_bases import NavigationToolbar2
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 

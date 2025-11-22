@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore, QtGui
 
 if TYPE_CHECKING:
     from .qfitswidget import QFitsWidget
@@ -15,7 +15,7 @@ class Settings(QtWidgets.QDialog, Ui_DialogSettings):
         """Init new widget."""
         from .qfitswidget import CenterMarkStyle
 
-        QtWidgets.QWidget.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setupUi(self)  # type: ignore
 
         # store
