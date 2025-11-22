@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import Any, TYPE_CHECKING, cast
 
-from PySide6 import QtGui, QtCore
+from qtpy import QtGui, QtCore  # type: ignore
 from matplotlib.backend_bases import NavigationToolbar2
-from matplotlib.backends.backend_qt import NavigationToolbar2QT
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
 
 from .settings import Settings
 from .qt.resources_rc import *
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .qfitswidget import QFitsWidget
 
 
-class NavigationToolbar(NavigationToolbar2QT):
+class NavigationToolbar(NavigationToolbar2QT):  # type: ignore
     toolitems = [*NavigationToolbar2.toolitems]
 
     # replace subplots with customize
@@ -31,7 +31,7 @@ class NavigationToolbar(NavigationToolbar2QT):
     )
 
     def __init__(self, fits_widget: QFitsWidget, *args: Any, **kwargs: Any):
-        NavigationToolbar2QT.__init__(self, *args, **kwargs)  # type: ignore
+        NavigationToolbar2QT.__init__(self, *args, **kwargs)
         self.fits_widget = fits_widget
         self.settings = Settings(fits_widget)
         self.show_overlay = True
@@ -44,14 +44,14 @@ class NavigationToolbar(NavigationToolbar2QT):
         if QtCore.QFile(filename).exists():
             # yeah, so use it
             pixmap = QtGui.QPixmap(filename)
-            mask = pixmap.createMaskFromColor(QtGui.QColor("black"), QtCore.Qt.MaskOutColor)
+            mask = pixmap.createMaskFromColor(QtGui.QColor("black"), QtGui.Qt.MaskMode.MaskOutColor)
             pixmap.fill((QtGui.QColor("white")))
             pixmap.setMask(mask)
             return QtGui.QIcon(pixmap)
 
         else:
             # use MPL icon
-            return cast(QtGui.QIcon, super()._icon(name))  # type: ignore
+            return cast(QtGui.QIcon, super()._icon(name))
 
     def customize(self, *args: Any) -> None:
         if not self.settings.isVisible():
