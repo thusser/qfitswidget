@@ -534,7 +534,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
             raise ValueError("No normalization available")
         # for RGB data, we need to normalize manually, since it's not done by imshow
         if len(data.shape) == 3:
-            return np.array([self.norm(data[d, :, :]) for d in range(data.shape[0])])
+            return np.array([self.norm(data[d, :, :]) / 255.0 for d in range(data.shape[0])])
         else:
             return self.norm(data)
 
