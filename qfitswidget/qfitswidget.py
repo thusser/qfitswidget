@@ -112,7 +112,7 @@ class MenuAction(MenuEntry):
     """A header in the menu."""
 
     text: str
-    callback: Callable
+    callback: Callable[[], tuple[tuple[float, float], WCS]]
 
 
 class MenuSeparator(MenuEntry):
@@ -206,6 +206,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
         self.mouse_over_thread_pool = QtCore.QThreadPool()
         self.mouse_over_thread_pool.setMaxThreadCount(1)
 
+        # signals
+        self.checkTrimSec.stateChanged.connect(self._trim_image)
+        self.comboStretch.currentTextChanged.connect(self._draw_image)
+        self.comboColormap.currentTextChanged.connect(self._draw_image)
+        self.checkColormapReverse.toggled.connect(self._draw_image)
+        self.comboCuts.currentTextChanged.connect(self._draw_image)
+        self.spinLoCut.valueChanged.connect(self._draw_image)
+        self.spinHiCut.valueChanged.connect(self._draw_image)
+
     def display(self, hdu: fits.PrimaryHDU) -> None:
         """Display image from given HDU.
 
@@ -287,7 +296,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
     def _draw_handler(self, draw_event: Any) -> None:
         self._image_cache = self.canvas.copy_from_bbox(self.figure.bbox)
 
-    @QtCore.Slot(int, name="on_checkTrimSec_stateChanged")  # type: ignore
+    @QtCore.Slot(int)  # type: ignore
     def _trim_image(self) -> None:
         # cut trimsec
         self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
@@ -302,12 +311,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
         # draw it
         self._draw_image()
 
-    @QtCore.Slot(str, name="on_comboStretch_currentTextChanged")  # type: ignore
-    @QtCore.Slot(str, name="on_comboColormap_currentTextChanged")  # type: ignore
-    @QtCore.Slot(int, name="on_checkColormapReverse_stateChanged")  # type: ignore
-    @QtCore.Slot(str, name="on_comboCuts_currentTextChanged")  # type: ignore
-    @QtCore.Slot(float, name="on_spinLoCut_valueChanged")  # type: ignore
-    @QtCore.Slot(float, name="on_spinLoCut_valueChanged")  # type: ignore
+    @QtCore.Slot(str)  # type: ignore
+    @QtCore.Slot(int)  # type: ignore
+    @QtCore.Slot(float)  # type: ignore
     def _draw_image(self) -> None:
         if self.sorted_data is None:
             return
@@ -344,7 +350,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
         cm = ScalarMappable(norm=self.norm, cmap=plt.get_cmap(self.cmap))
 
         # create colorbar image
-        colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format_ARGB32)
+        colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format.Format_ARGB32)
         for i, f in enumerate(np.linspace(vmin, vmax, 256)):
             rgba = cm.to_rgba(f, bytes=True)
             c = QtGui.QColor(*rgba)
