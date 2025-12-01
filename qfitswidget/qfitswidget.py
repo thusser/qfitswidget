@@ -1,20 +1,17 @@
 from __future__ import annotations
-
 import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Any, Protocol
-import cv2
+import cv2  # type: ignore
 import jinja2
-from PyQt5 import QtWidgets, QtCore, QtGui
 import numpy as np
 import numpy.typing as npt
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QRunnable
-from PyQt5.QtWidgets import QAction
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
+from qtpy import QtCore, QtWidgets, QtGui  # type: ignore
 import matplotlib.pyplot as plt
 from astropy.wcs.utils import pixel_to_skycoord
 from matplotlib import colors
@@ -25,10 +22,9 @@ from matplotlib.colors import Normalize
 from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrow, Circle
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.text import Text
-
-from qfitswidget.qt.fitswidget import Ui_FitsWidget
+from qfitswidget.qt.fitswidget_ui import Ui_FitsWidget
 from qfitswidget.navigationtoolbar import NavigationToolbar
 from qfitswidget.norm import FuncNorm
 
@@ -51,13 +47,13 @@ class ProcessMouseHoverResult:
     cut: np.ndarray
 
 
-class ProcessMouseHoverSignals(QtCore.QObject):
-    finished = pyqtSignal(ProcessMouseHoverResult)
+class ProcessMouseHoverSignals(QtCore.QObject):  # type: ignore
+    finished = QtCore.Signal(ProcessMouseHoverResult)
 
 
-class ProcessMouseHover(QRunnable):
+class ProcessMouseHover(QtCore.QRunnable):  # type: ignore
     def __init__(self, fits_widget: QFitsWidget):
-        QRunnable.__init__(self)
+        QtCore.QRunnable.__init__(self)
         self.signals = ProcessMouseHoverSignals()
         self.fits_widget = fits_widget
         self.x = fits_widget.mouse_pos[0]
@@ -116,7 +112,7 @@ class MenuAction(MenuEntry):
     """A header in the menu."""
 
     text: str
-    callback: Callable
+    callback: Callable[[], tuple[tuple[float, float], WCS]]
 
 
 class MenuSeparator(MenuEntry):
@@ -129,11 +125,11 @@ class CanNormalize(Protocol):
     ) -> npt.NDArray[np.floating[Any]]: ...
 
 
-class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
+class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
     """PyQt Widget for displaying FITS images."""
 
     """Signal emitted when new cuts have been calculated."""
-    calculatedCuts = pyqtSignal(int, int)
+    calculatedCuts = QtCore.Signal(int, int)
 
     def __init__(self, parent: QtWidgets.QWidget | None = None):
         """Init new widget."""
@@ -209,6 +205,15 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # mouse over update thread pool
         self.mouse_over_thread_pool = QtCore.QThreadPool()
         self.mouse_over_thread_pool.setMaxThreadCount(1)
+
+        # signals
+        self.checkTrimSec.stateChanged.connect(self._trim_image)
+        self.comboStretch.currentTextChanged.connect(self._draw_image)
+        self.comboColormap.currentTextChanged.connect(self._draw_image)
+        self.checkColormapReverse.toggled.connect(self._draw_image)
+        self.comboCuts.currentTextChanged.connect(self._draw_image)
+        self.spinLoCut.valueChanged.connect(self._draw_image)
+        self.spinHiCut.valueChanged.connect(self._draw_image)
 
     def display(self, hdu: fits.PrimaryHDU) -> None:
         """Display image from given HDU.
@@ -291,7 +296,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
     def _draw_handler(self, draw_event: Any) -> None:
         self._image_cache = self.canvas.copy_from_bbox(self.figure.bbox)
 
-    @pyqtSlot(int, name="on_checkTrimSec_stateChanged")
+    @QtCore.Slot(int)  # type: ignore
     def _trim_image(self) -> None:
         # cut trimsec
         self.trimmed_data = self._trimsec(self.hdu, self.data) if self.checkTrimSec.isChecked() else self.data
@@ -306,12 +311,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         # draw it
         self._draw_image()
 
-    @pyqtSlot(str, name="on_comboStretch_currentTextChanged")
-    @pyqtSlot(str, name="on_comboColormap_currentTextChanged")
-    @pyqtSlot(int, name="on_checkColormapReverse_stateChanged")
-    @pyqtSlot(str, name="on_comboCuts_currentTextChanged")
-    @pyqtSlot(float, name="on_spinLoCut_valueChanged")
-    @pyqtSlot(float, name="on_spinLoCut_valueChanged")
+    @QtCore.Slot(str)  # type: ignore
+    @QtCore.Slot(int)  # type: ignore
+    @QtCore.Slot(float)  # type: ignore
     def _draw_image(self) -> None:
         if self.sorted_data is None:
             return
@@ -348,7 +350,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
         cm = ScalarMappable(norm=self.norm, cmap=plt.get_cmap(self.cmap))
 
         # create colorbar image
-        colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format_ARGB32)
+        colorbar = QtGui.QImage(1, 256, QtGui.QImage.Format.Format_ARGB32)
         for i, f in enumerate(np.linspace(vmin, vmax, 256)):
             rgba = cm.to_rgba(f, bytes=True)
             c = QtGui.QColor(*rgba)
@@ -538,7 +540,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             raise ValueError("No normalization available")
         # for RGB data, we need to normalize manually, since it's not done by imshow
         if len(data.shape) == 3:
-            return np.array([self.norm(data[d, :, :]) for d in range(data.shape[0])])
+            return np.array([self.norm(data[d, :, :]) / 255.0 for d in range(data.shape[0])])
         else:
             return self.norm(data)
 
@@ -657,14 +659,14 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):
             menu.triggered.connect(self._menu_action_clicked)
             menu.exec_(QtGui.QCursor.pos())
 
-    @pyqtSlot(QAction)
-    def _menu_action_clicked(self, action: QAction) -> None:
+    @QtCore.Slot(QtGui.QAction)  # type: ignore
+    def _menu_action_clicked(self, action: QtGui.QAction) -> None:
         """Run callback for menu click."""
         callback, pixel, wcs = action.data()
         callback(pixel, wcs)
 
-    @pyqtSlot(ProcessMouseHoverResult)
-    @pyqtSlot(float, float, np.ndarray, float, float, np.ndarray)
+    @QtCore.Slot(ProcessMouseHoverResult)  # type: ignore
+    @QtCore.Slot(float, float, np.ndarray, float, float, np.ndarray)  # type: ignore
     def _update_mouse_over(
         self,
         result: ProcessMouseHoverResult,

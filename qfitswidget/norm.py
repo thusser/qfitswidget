@@ -4,7 +4,7 @@ import numpy as np
 import numpy.typing as npt
 
 
-class FuncNorm(Normalize):
+class FuncNorm(Normalize):  # type: ignore
     """
     Normalize a given value to the 0-1 range on a sqrt scale
     """
