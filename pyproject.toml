@@ -1,6 +1,6 @@
 [project]
 name = "qfitswidget"
-version = "0.13.0"
+version = "0.13.1"
 description = "PyQt widget for displaying FITS files"
 authors = [{ name = "Tim-Oliver Husser", email = "thusser@uni-goettingen.de" }]
 requires-python = ">=3.11,<3.14"
