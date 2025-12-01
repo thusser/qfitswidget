@@ -1,7 +1,7 @@
 import sys
 from typing import Tuple
 
-from PyQt5 import QtWidgets
+from PySide6 import QtWidgets
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 

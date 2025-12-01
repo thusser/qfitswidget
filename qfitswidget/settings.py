@@ -1,21 +1,21 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 
-from PyQt5 import QtWidgets, QtCore, QtGui
+from qtpy import QtWidgets, QtGui  # type: ignore
 
 if TYPE_CHECKING:
     from .qfitswidget import QFitsWidget
-from .qt.settings import Ui_DialogSettings
+from .qt.settings_ui import Ui_DialogSettings
 
 
-class Settings(QtWidgets.QDialog, Ui_DialogSettings):
+class Settings(QtWidgets.QDialog, Ui_DialogSettings):  # type: ignore
     """PyQt form for displayings settings."""
 
     def __init__(self, fits_widget: QFitsWidget, parent: Optional[QtWidgets.QWidget] = None):
         """Init new widget."""
         from .qfitswidget import CenterMarkStyle
 
-        QtWidgets.QWidget.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.setupUi(self)  # type: ignore
 
         # store
