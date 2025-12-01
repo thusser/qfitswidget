@@ -18,13 +18,13 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
     QDoubleSpinBox, QFrame, QHBoxLayout, QLabel,
     QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
-from . import resources_rc
+from . import resources.rc_rc
 
 class Ui_FitsWidget(object):
     def setupUi(self, FitsWidget):
         if not FitsWidget.objectName():
             FitsWidget.setObjectName(u"FitsWidget")
-        FitsWidget.resize(896, 551)
+        FitsWidget.resize(896, 553)
         self.verticalLayout = QVBoxLayout(FitsWidget)
         self.verticalLayout.setSpacing(0)
         self.verticalLayout.setObjectName(u"verticalLayout")
@@ -78,8 +78,8 @@ class Ui_FitsWidget(object):
 
         self.frame = QFrame(FitsWidget)
         self.frame.setObjectName(u"frame")
-        self.frame.setFrameShape(QFrame.Shape.NoFrame)
-        self.frame.setFrameShadow(QFrame.Shadow.Raised)
+        self.frame.setFrameShape(QFrame.NoFrame)
+        self.frame.setFrameShadow(QFrame.Raised)
         self.horizontalLayout_3 = QHBoxLayout(self.frame)
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
@@ -98,7 +98,7 @@ class Ui_FitsWidget(object):
         self.spinLoCut = QDoubleSpinBox(self.frame)
         self.spinLoCut.setObjectName(u"spinLoCut")
         self.spinLoCut.setEnabled(False)
-        self.spinLoCut.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        self.spinLoCut.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.spinLoCut.setMinimum(-99999.000000000000000)
         self.spinLoCut.setMaximum(99999.000000000000000)
 

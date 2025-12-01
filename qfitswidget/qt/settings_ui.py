@@ -19,13 +19,12 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
     QFormLayout, QFrame, QGridLayout, QGroupBox,
     QHBoxLayout, QLabel, QSizePolicy, QSpinBox,
     QToolButton, QWidget)
-from . import resources_rc
 
 class Ui_DialogSettings(object):
     def setupUi(self, DialogSettings):
         if not DialogSettings.objectName():
             DialogSettings.setObjectName(u"DialogSettings")
-        DialogSettings.resize(401, 230)
+        DialogSettings.resize(409, 230)
         self.gridLayout = QGridLayout(DialogSettings)
         self.gridLayout.setObjectName(u"gridLayout")
         self.groupBox_3 = QGroupBox(DialogSettings)
@@ -46,8 +45,8 @@ class Ui_DialogSettings(object):
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.labelTextOverlayColor = QFrame(self.groupBox_3)
         self.labelTextOverlayColor.setObjectName(u"labelTextOverlayColor")
-        self.labelTextOverlayColor.setFrameShape(QFrame.Shape.StyledPanel)
-        self.labelTextOverlayColor.setFrameShadow(QFrame.Shadow.Raised)
+        self.labelTextOverlayColor.setFrameShape(QFrame.StyledPanel)
+        self.labelTextOverlayColor.setFrameShadow(QFrame.Raised)
 
         self.horizontalLayout_3.addWidget(self.labelTextOverlayColor)
 
@@ -86,8 +85,8 @@ class Ui_DialogSettings(object):
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.labelCenterColor = QFrame(self.groupBox_2)
         self.labelCenterColor.setObjectName(u"labelCenterColor")
-        self.labelCenterColor.setFrameShape(QFrame.Shape.StyledPanel)
-        self.labelCenterColor.setFrameShadow(QFrame.Shadow.Raised)
+        self.labelCenterColor.setFrameShape(QFrame.StyledPanel)
+        self.labelCenterColor.setFrameShadow(QFrame.Raised)
 
         self.horizontalLayout_2.addWidget(self.labelCenterColor)
 
@@ -150,8 +149,8 @@ class Ui_DialogSettings(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.labelDirectionsColor = QFrame(self.groupBox)
         self.labelDirectionsColor.setObjectName(u"labelDirectionsColor")
-        self.labelDirectionsColor.setFrameShape(QFrame.Shape.StyledPanel)
-        self.labelDirectionsColor.setFrameShadow(QFrame.Shadow.Raised)
+        self.labelDirectionsColor.setFrameShape(QFrame.StyledPanel)
+        self.labelDirectionsColor.setFrameShadow(QFrame.Raised)
 
         self.horizontalLayout.addWidget(self.labelDirectionsColor)
 
