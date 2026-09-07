@@ -680,18 +680,24 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
                 # update text overlay
                 text = f"X/Y: {result.x:.1f} / {result.y:.1f}\n"
 
-                # WCS?
+                # WCS? -- pixel_to_skycoord() can yield NaN (e.g. mouse over a pixel with no
+                # valid astrometric solution), and formatting a NaN Angle raises "invalid value
+                # encountered" as a real exception under numpy warnings-as-errors (as pyobs-core's
+                # application.py sets globally), which would otherwise abort this whole method
+                # before the overlay is ever drawn or blitted -- so skip the WCS line instead
                 if "CTYPE1" in self.hdu.header and self.mouse_pos_wcs is not None:
                     if "RA---TAN" in self.hdu.header["CTYPE1"]:
-                        text += (
-                            f"RA/Dec: {self.mouse_pos_wcs.ra.to_string(u.hour, precision=1)} / "
-                            f"{self.mouse_pos_wcs.dec.to_string(precision=1)}\n"
-                        )
+                        if np.isfinite(self.mouse_pos_wcs.ra.deg) and np.isfinite(self.mouse_pos_wcs.dec.deg):
+                            text += (
+                                f"RA/Dec: {self.mouse_pos_wcs.ra.to_string(u.hour, precision=1)} / "
+                                f"{self.mouse_pos_wcs.dec.to_string(precision=1)}\n"
+                            )
                     elif "HPLN-TAN" in self.hdu.header["CTYPE1"]:
-                        text += (
-                            f"Tx/Ty: {self.mouse_pos_wcs.Tx.to_string(precision=1)} / "
-                            f"{self.mouse_pos_wcs.Ty.to_string(precision=1)}\n"
-                        )
+                        if np.isfinite(self.mouse_pos_wcs.Tx.value) and np.isfinite(self.mouse_pos_wcs.Ty.value):
+                            text += (
+                                f"Tx/Ty: {self.mouse_pos_wcs.Tx.to_string(precision=1)} / "
+                                f"{self.mouse_pos_wcs.Ty.to_string(precision=1)}\n"
+                            )
 
                 # more
                 val = ", ".join([f"{v:.1f}" for v in result.value])
