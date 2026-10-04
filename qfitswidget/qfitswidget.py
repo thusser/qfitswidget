@@ -27,6 +27,7 @@ from matplotlib.text import Text
 from qfitswidget.qt.fitswidget_ui import Ui_FitsWidget
 from qfitswidget.navigationtoolbar import NavigationToolbar
 from qfitswidget.norm import FuncNorm
+from qfitswidget.stretchcontrols import StretchControls
 
 plt.style.use("dark_background")
 
@@ -190,21 +191,21 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
         self.ax_zoom.patch.set_alpha(0.01)
         self.ax_zoom.axis("off")
 
-        # set cuts -- spinLoCut/spinHiCut only mean anything in "Custom" mode (otherwise disabled
-        # and driven by _update_cuts_gui()), so hide them outright otherwise instead of just
-        # disabling: dead weight in the toolbar row at any width, not just a responsiveness thing
-        self.comboCuts.addItems(["100.0%", "99.9%", "99.0%", "95.0%", "Custom"])
-        self.comboCuts.setCurrentText("99.9%")
-        self.spinLoCut.setVisible(False)
-        self.spinHiCut.setVisible(False)
-
-        # set stretch functions
-        self.comboStretch.addItems(["linear", "log", "sqrt", "squared", "asinh"])
-        self.comboStretch.setCurrentText("sqrt")
-
-        # set colormaps
-        self.comboColormap.addItems(sorted([cm for cm in plt.colormaps() if not cm.endswith("_r")]))
-        self.comboColormap.setCurrentText("gray")
+        # display controls, trimsec is ours and goes into the controls' overflow menu first
+        self.checkTrimSec = QtWidgets.QCheckBox("trimsec", self)
+        self.checkTrimSec.setEnabled(False)
+        self.checkTrimSec.setChecked(True)
+        self.controls = StretchControls(
+            ["100.0%", "99.9%", "99.0%", "95.0%", "Custom"],
+            ["linear", "log", "sqrt", "squared", "asinh"],
+            spin_modes=["Custom"],
+            extra_checks=[self.checkTrimSec],
+            parent=self,
+        )
+        self.controls.cuts_mode = "99.9%"
+        self.controls.stretch = "sqrt"
+        self.controls.colormap = "gray"
+        self.verticalLayout.addWidget(self.controls)
 
         # mouse over update thread pool
         self.mouse_over_thread_pool = QtCore.QThreadPool()
@@ -212,207 +213,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
 
         # signals
         self.checkTrimSec.stateChanged.connect(self._trim_image)
-        self.comboStretch.currentTextChanged.connect(self._draw_image)
-        self.comboColormap.currentTextChanged.connect(self._draw_image)
-        self.checkColormapReverse.toggled.connect(self._draw_image)
-        self.comboCuts.currentTextChanged.connect(self._draw_image)
-        self.spinLoCut.valueChanged.connect(self._draw_image)
-        self.spinHiCut.valueChanged.connect(self._draw_image)
-
-        # responsive toolbar row (see specs/2026-09-14-fitswidget-toolbar-overflow.md in pyobs-gui,
-        # hosted there since this repo has no specs/ of its own): as horizontalLayout_3 runs out of
-        # width, first drop the three labels (their text just moves to a tooltip on the combo they
-        # described), then push checkTrimSec into an overflow menu, then checkColormapReverse too.
-        # Thresholds are measured against this row's own real sizeHint() at each tier (see
-        # _measure_toolbar_tier_widths()) rather than hardcoded -- a pixel constant picked once
-        # against today's font/DPI/style would silently drift the moment any of those change.
-        (
-            self._TOOLBAR_HIDE_LABELS_WIDTH,
-            self._TOOLBAR_OVERFLOW_TRIMSEC_WIDTH,
-            self._TOOLBAR_OVERFLOW_REVERSED_WIDTH,
-            self._TOOLBAR_FULLY_COMPACTED_WIDTH,
-        ) = self._measure_toolbar_tier_widths()
-        self._overflow_menu = QtWidgets.QMenu(self)
-        # One QWidgetAction per overflow-able widget, created once and reused for the widget's
-        # entire lifetime -- never deleted. Earlier version created a fresh QWidgetAction each
-        # time a widget entered overflow and deleteLater()'d it on restore; that crashed for real
-        # (not just in theory) once an actual Qt event loop got a chance to process the deferred
-        # deletion -- confirmed via a real resize-then-grow-back cycle with app.processEvents()
-        # pumped in between, which a same-thread direct resizeEvent() call in isolation never
-        # exercises. Reusing one action and only toggling its menu membership sidesteps the whole
-        # "does releaseWidget() fully sever ownership before deleteLater() runs" question instead
-        # of trying to get the timing right.
-        self._overflow_widgets = (self.checkTrimSec, self.checkColormapReverse)
-        self._overflow_actions: dict[QtWidgets.QWidget, QtWidgets.QWidgetAction] = {
-            widget: QtWidgets.QWidgetAction(self._overflow_menu) for widget in self._overflow_widgets
-        }
-        self._overflowed: set[QtWidgets.QWidget] = set()
-        self.buttonOverflow = QtWidgets.QToolButton(self)
-        self.buttonOverflow.setText("⋯")  # horizontal ellipsis -- no icon dependency needed
-        self.buttonOverflow.setToolTip("More display options")
-        self.buttonOverflow.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.buttonOverflow.setMenu(self._overflow_menu)
-        self.buttonOverflow.setVisible(False)
-        self.horizontalLayout_3.addWidget(self.buttonOverflow)
-
-    def _measure_toolbar_tier_widths(self) -> tuple[int, int, int, int]:
-        """Derives the three resizeEvent() thresholds, plus the true fully-compacted floor used
-        by minimumSizeHint() (see there), from horizontalLayout_3's own real sizeHint() at each
-        tier -- toggles the relevant widgets' visibility, reads sizeHint(), and restores
-        everything to fully visible afterward (spinLoCut/spinHiCut's own Custom-mode visibility is
-        set separately, right after this runs, and is unaffected either way since this method
-        never touches them). Runs once, at construction; the resulting numbers are then fixed for
-        the widget's lifetime, same as hardcoded constants would be -- this only replaces where
-        they come from, not the resizeEvent logic that uses them.
-
-        Four measurements, not three: the *threshold* for overflowing `reversed` has to be
-        measured with `reversed` still visible (that's the width at which it stops fitting), but
-        the *floor* minimumSizeHint() reports has to be measured with `reversed` already hidden
-        too (the actual smallest this row can ever get) -- conflating these was a real bug, not
-        just a naming nitpick: minimumSizeHint() returning the threshold width instead of the
-        floor told Qt "this can't get any smaller" at the exact point where `reversed` was still
-        visible, so a resizeEvent narrow enough to trigger overflowing it was never delivered at
-        all -- confirmed live, not just reasoned about (Tim: "only the trimsec checkbox moves into
-        the overflow", every time, no matter how narrow)."""
-        layout = self.horizontalLayout_3
-        margin = 8  # a little above "exactly fits", so a resize near the boundary doesn't flicker
-
-        full_width = layout.sizeHint().width()
-
-        self.labelCuts.setVisible(False)
-        self.labelStretch.setVisible(False)
-        self.labelColormap.setVisible(False)
-        labels_hidden_width = layout.sizeHint().width()
-
-        self.checkTrimSec.setVisible(False)
-        trimsec_hidden_width = layout.sizeHint().width()
-
-        self.checkColormapReverse.setVisible(False)
-        reversed_hidden_width = layout.sizeHint().width()
-
-        # restore
-        self.labelCuts.setVisible(True)
-        self.labelStretch.setVisible(True)
-        self.labelColormap.setVisible(True)
-        self.checkTrimSec.setVisible(True)
-        self.checkColormapReverse.setVisible(True)
-
-        return (
-            full_width + margin,
-            labels_hidden_width + margin,
-            trimsec_hidden_width + margin,
-            reversed_hidden_width + margin,
-        )
-
-    def minimumSizeHint(self) -> QtCore.QSize:
-        """Reports the fully-compacted toolbar width as the floor, not whatever the row's
-        *current* (possibly not-yet-compacted) visible state happens to need.
-
-        This matters specifically when QFitsWidget lives inside a resizable QScrollArea (as it
-        does in pyobs-gui, via stackedWidgetScroll -> ... -> CameraWidget -> DataDisplayWidget):
-        Qt decides whether to actually shrink a widget or just show a scrollbar instead based on
-        minimumSizeHint(), *before* ever delivering a resizeEvent with a smaller size. Without
-        this override, the default minimumSizeHint() reflects horizontalLayout_3's current
-        (uncompacted) children, so the scroll area concludes "this needs ~600px" and a scrollbar
-        appears -- resizeEvent() then never actually receives a width small enough to trigger its
-        own hide/overflow logic at all, a chicken-and-egg deadlock confirmed the hard way in a
-        real embedded run, not just in the isolated headless tests above (which resize this
-        widget directly and never hit the deadlock, since nothing there was deciding scroll vs.
-        shrink on its behalf).
-
-        Caps at _TOOLBAR_FULLY_COMPACTED_WIDTH specifically, not _TOOLBAR_OVERFLOW_REVERSED_WIDTH
-        -- the latter is the *threshold* for overflowing `reversed`, measured with `reversed`
-        still visible, not the width once it's ALSO hidden. Using it here told Qt this row could
-        never get smaller than the size where `reversed` is still shown, so a resizeEvent narrow
-        enough to ever overflow it was never delivered -- a second, one-tier-deeper instance of
-        the exact same chicken-and-egg shape as the bug above, confirmed live: `reversed` never
-        overflowed no matter how far the window shrank, only `trimsec` ever did."""
-        hint = super().minimumSizeHint()
-        return QtCore.QSize(min(hint.width(), self._TOOLBAR_FULLY_COMPACTED_WIDTH), hint.height())
-
-    # Gap between a tier's hide threshold and its re-show threshold. Without this, a width
-    # sitting right at a boundary -- which happens in practice, not just hypothetically: a live
-    # drag delivers resize events a couple pixels apart, and reparenting a widget out of/into the
-    # layout can itself trigger a follow-up resize event a few pixels narrower or wider than the
-    # one that triggered it -- flips the tier's state on every such event, which is exactly the
-    # visible flicker Tim hit testing this for real. Confirmed by tracing a simulated drag: real
-    # resize events do land within single-digit pixels of each other near a boundary.
-    _HYSTERESIS_MARGIN = 24
-
-    def _tier_active(self, width: int, threshold: int, currently_active: bool) -> bool:
-        """Whether a hide/overflow tier should be active at this width, given whether it already
-        is -- the threshold to *activate* is `threshold`; to *deactivate* once already active, the
-        width has to clear `threshold + _HYSTERESIS_MARGIN`, not just `threshold` again."""
-        if currently_active:
-            return width < threshold + self._HYSTERESIS_MARGIN
-        return width < threshold
-
-    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
-        super().resizeEvent(event)
-        # event.size(), not self.width() -- normally identical, but relying on self.width() here
-        # made this untestable with a directly-constructed QResizeEvent (self.width() then still
-        # reflects whatever the widget's real current size happens to be, not the event's size),
-        # and reading directly off the event is the more correct/robust practice regardless
-        width = event.size().width()
-
-        labels_hidden = self._tier_active(width, self._TOOLBAR_HIDE_LABELS_WIDTH, not self.labelCuts.isVisible())
-        show_labels = not labels_hidden
-        self.labelCuts.setVisible(show_labels)
-        self.labelStretch.setVisible(show_labels)
-        self.labelColormap.setVisible(show_labels)
-        self.comboCuts.setToolTip("" if show_labels else "Cuts")
-        self.comboStretch.setToolTip("" if show_labels else "Stretch")
-        self.comboColormap.setToolTip("" if show_labels else "Colormap")
-
-        # priority order matches specs/2026-09-14-fitswidget-toolbar-overflow.md: trimsec goes to
-        # overflow before reversed as width shrinks, and comes back out after it as width grows --
-        # each _set_overflow() call is independent and idempotent, order here only matters in that
-        # it's what the plan's stated priority actually means in code
-        trimsec_overflow = self._tier_active(
-            width, self._TOOLBAR_OVERFLOW_TRIMSEC_WIDTH, self.checkTrimSec in self._overflowed
-        )
-        self._set_overflow(self.checkTrimSec, trimsec_overflow)
-        reversed_overflow = self._tier_active(
-            width, self._TOOLBAR_OVERFLOW_REVERSED_WIDTH, self.checkColormapReverse in self._overflowed
-        )
-        self._set_overflow(self.checkColormapReverse, reversed_overflow)
-
-    def _set_overflow(self, widget: QtWidgets.QWidget, overflow: bool) -> None:
-        """Moves widget between horizontalLayout_3 and the overflow menu -- the actual widget
-        instance either way, not a copy, so its signal connections and state survive the move
-        untouched. QWidgetAction.setDefaultWidget() is the standard Qt mechanism for embedding a
-        real interactive widget inside a QMenu, rather than a QAction-style static entry.
-
-        The QWidgetAction itself (self._overflow_actions[widget]) is created once, in __init__,
-        and reused for the widget's entire lifetime -- never deleted here. An earlier version
-        created a fresh QWidgetAction on every overflow and deleteLater()'d it on restore; that
-        crashed for real once an actual Qt event loop got a chance to process the deferred
-        deletion (confirmed via a real resize-then-grow-back cycle with app.processEvents()
-        pumped in between -- a direct, synchronous resizeEvent() call in isolation never exercises
-        that timing, which is why the earlier version's own headless test didn't catch it).
-        Reusing one action and only toggling its menu membership sidesteps the whole "does
-        releaseWidget() fully sever ownership before deleteLater() runs" question instead of
-        trying to get that timing right."""
-        if overflow == (widget in self._overflowed):
-            return
-        action = self._overflow_actions[widget]
-        if overflow:
-            self.horizontalLayout_3.removeWidget(widget)
-            action.setDefaultWidget(widget)
-            self._overflow_menu.addAction(action)
-            self._overflowed.add(widget)
-        else:
-            self._overflow_menu.removeAction(action)
-            action.releaseWidget(widget)
-            # setVisible(True) must come AFTER addWidget(), not before: QLayout.addWidget()
-            # reparents the widget internally, and Qt's documented behavior is that reparenting
-            # always hides a widget as a side effect regardless of a setVisible() call made
-            # beforehand -- confirmed the hard way, this order silently left restored widgets
-            # invisible even though _overflowed correctly showed them as no longer overflowed.
-            self.horizontalLayout_3.addWidget(widget)
-            widget.setVisible(True)
-            self._overflowed.discard(widget)
-        self.buttonOverflow.setVisible(len(self._overflowed) > 0)
+        self.controls.changed.connect(self._draw_image)
 
     def display(self, hdu: fits.PrimaryHDU) -> None:
         """Display image from given HDU.
@@ -478,15 +279,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
         is_color = len(self.data.shape) == 3 and self.data.shape[2] == 3
 
         # enable GUI elements, only important for first image after start
-        self.labelCuts.setEnabled(not is_int8)
-        self.comboCuts.setEnabled(not is_int8)
-        self.spinLoCut.setEnabled(not is_int8)
-        self.spinHiCut.setEnabled(not is_int8)
-        self.labelStretch.setEnabled(not is_int8)
-        self.comboStretch.setEnabled(not is_int8)
-        self.labelColormap.setEnabled(not is_color)
-        self.comboColormap.setEnabled(not is_color)
-        self.checkColormapReverse.setEnabled(not is_color)
+        self.controls.set_cuts_enabled(not is_int8)
+        self.controls.set_stretch_enabled(not is_int8)
+        self.controls.set_colormap_enabled(not is_color)
         self.checkTrimSec.setEnabled(True)
 
         # draw image
@@ -519,11 +314,11 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
 
         # cuts
         self._evaluate_cuts_preset()
-        vmin = self.spinLoCut.value()
-        vmax = self.spinHiCut.value()
+        vmin = self.controls.cut_lo
+        vmax = self.controls.cut_hi
 
         # get normalization
-        stretch = self.comboStretch.currentText()
+        stretch = self.controls.stretch
         if stretch == "linear":
             self.norm = colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
         elif stretch == "log":
@@ -541,9 +336,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
         self.scaled_data = self.normalize_data(self.trimmed_data) if self.trimmed_data is not None else None
 
         # get name of colormap
-        self.cmap = self.comboColormap.currentText()
-        if self.checkColormapReverse.isChecked():
-            self.cmap += "_r"
+        self.cmap = self.controls.colormap
 
         # get colormap
         cm = ScalarMappable(norm=self.norm, cmap=plt.get_cmap(self.cmap))
@@ -747,13 +540,9 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
         """When the cuts preset has changed, calculate the new cuts"""
 
         # get preset
-        preset = self.comboCuts.currentText()
+        preset = self.controls.cuts_mode
         if preset == "Custom":
-            # just enable text boxes
-            self.spinLoCut.setEnabled(True)
-            self.spinLoCut.setVisible(True)
-            self.spinHiCut.setEnabled(True)
-            self.spinHiCut.setVisible(True)
+            # the user enters the cuts, the controls show the spin boxes
             return
 
         # get percentage
@@ -766,34 +555,7 @@ class QFitsWidget(QtWidgets.QWidget, Ui_FitsWidget):  # type: ignore
 
         # get min/max in cut range
         cut = self.sorted_data[n:-n] if n > 0 else self.sorted_data
-        cuts = (np.min(cut), np.max(cut))
-
-        # update gui
-        self._update_cuts_gui(*cuts)
-
-    def _update_cuts_gui(self, lo: int, hi: int) -> None:
-        """Update current cuts shown in GUI.
-
-        Args:
-            lo: Low cut.
-            hi: Hight cut.
-        """
-
-        # disable signals
-        self.spinLoCut.blockSignals(True)
-        self.spinHiCut.blockSignals(True)
-
-        # set them and disable+hide text boxes -- only meaningful in "Custom" mode
-        self.spinLoCut.setValue(lo)
-        self.spinLoCut.setEnabled(False)
-        self.spinLoCut.setVisible(False)
-        self.spinHiCut.setValue(hi)
-        self.spinHiCut.setEnabled(False)
-        self.spinHiCut.setVisible(False)
-
-        # enable signals
-        self.spinLoCut.blockSignals(True)
-        self.spinHiCut.blockSignals(True)
+        self.controls.set_cut_values(np.min(cut), np.max(cut))
 
     def _mouse_moved(self, event: Any) -> None:
         """Called, whenever the mouse is moved.
