@@ -22,6 +22,8 @@ dev = [
     "mypy>=1.17.0",
     "pre-commit>=4.2.0,<5",
     "pyside6>=6.10.1",
+    "pytest>=9.1.1",
+    "pytest-qt>=4.5.0",
     "scipy-stubs>=1.16.0.2",
 ]
 
