@@ -5,6 +5,7 @@ description = "PyQt widget for displaying FITS files"
 authors = [{ name = "Tim-Oliver Husser", email = "thusser@uni-goettingen.de" }]
 requires-python = ">=3.11"
 license = "MIT"
+readme = "README.md"
 dependencies = [
     "matplotlib>=3.10.1,<4",
     "numpy>=2.2.5,<3",
@@ -13,6 +14,10 @@ dependencies = [
     "jinja2>=3.1.4,<4",
     "qtpy>=2.4.3",
 ]
+
+[project.urls]
+Repository = "https://github.com/thusser/qfitswidget"
+Issues = "https://github.com/thusser/qfitswidget/issues"
 
 [dependency-groups]
 dev = [
